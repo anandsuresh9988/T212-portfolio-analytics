@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividend Payouts</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .summary {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .summary h2 {
+            margin-top: 0;
+        }
+        .amount {
+            font-family: monospace;
+        }
+        .ticker-summary {
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dividend Payouts</h1>
+
+        <div class="summary">
+            <h2>Summary</h2>
+            <p>Total Dividends: <span class="amount">£{{ total_dividends }}</span></p>
+            <p>Total WHT: <span class="amount">£{{ total_wht }}</span></p>
+            <p>Total Net: <span class="amount">£{{ total_net }}</span></p>
+        </div>
+
+        <div class="ticker-summary">
+            <h2>Dividends by Ticker</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Total</th>
+                        <th>WHT</th>
+                        <th>Net</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for summary in ticker_summary %}
+                    <tr>
+                        <td>{{ summary.ticker }}</td>
+                        <td class="amount">£{{ summary.total }}</td>
+                        <td class="amount">£{{ summary.wht }}</td>
+                        <td class="amount">£{{ summary.net }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>All Dividend Records</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Ticker</th>
+                    <th>Name</th>
+                    <th>Quantity</th>
+                    <th>Price/Share</th>
+                    <th>Currency</th>
+                    <th>Total</th>
+                    <th>WHT</th>
+                    <th>Net</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.date }}</td>
+                    <td>{{ record.ticker }}</td>
+                    <td>{{ record.name }}</td>
+                    <td class="amount">{{ record.quantity }}</td>
+                    <td class="amount">{{ record.price }}</td>
+                    <td>{{ record.currency }}</td>
+                    <td class="amount">£{{ record.total }}</td>
+                    <td class="amount">£{{ record.withholding_tax }}</td>
+                    <td class="amount">£{{ record.net_amount }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html> 

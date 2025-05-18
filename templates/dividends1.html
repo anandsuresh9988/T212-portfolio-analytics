@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividend Payouts</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-container {
+            margin: 20px;
+            padding: 20px;
+        }
+        .summary-box {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<h1>Dividends</h1>
+
+<table>
+    <thead>
+      <tr>
+          <th>Symbol</th>
+          <th>Quantity</th>
+          <th>Avg Price</th>
+          <th>Total Investment</th>
+          <th>Dividend/Share</th>
+          <th>Total Dividend</th>
+          <th>Yield</th>
+          <th>Yield on Cost</th>
+          <th>WHT</th>
+          <th>Income after WHT</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in dividends %}
+      <tr>
+        <td>{{ item.symbol }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ item.avg_price }}</td>
+        <td>{{ item.total_investment }}</td>
+        <td>{{ item.annual_dividend_per_share }}</td>
+        <td>{{ item.annual_dividend }}</td>
+        <td>{{ item.dividend_yield }}%</td>
+        <td>{{ item.yield_on_cost }}%</td>
+        <td>{{ item.annual_wht }}</td>
+        <td>{{ item.annual_income_after_wht }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Format all numeric cells to 2 decimal places
+    const cells = document.querySelectorAll('td:not(:first-child)');
+    cells.forEach(cell => {
+      const text = cell.textContent.trim();
+      // Check if the cell contains a percentage
+      const isPercent = text.includes('%');
+      // Remove the percentage sign for parsing
+      const valueText = isPercent ? text.replace('%', '') : text;
+      // Parse the number
+      const value = parseFloat(valueText);
+      
+      // Format if it's a valid number
+      if (!isNaN(value)) {
+        // Format with 2 decimal places
+        const formattedValue = value.toFixed(2);
+        // Add back the percentage sign if needed
+        cell.textContent = isPercent ? formattedValue + '%' : formattedValue;
+      }
+    });
+  });
+</script>
