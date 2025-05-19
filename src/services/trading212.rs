@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2024 Anand S <anandsuresh9988@gmail.com>
- * 
+ *
  * This file is part of the Portfolio Management project.
  */
 use crate::models::portfolio::{Portfolio, Position};
@@ -89,7 +89,8 @@ pub enum RequestType {
 
 impl Trading212Client {
     pub fn new(rqst_type: RequestType) -> Result<Self, Trading212Error> {
-        let api_key = env::var("TRADING212_API_TOKEN").map_err(|_| Trading212Error::MissingApiKey)?;
+        let api_key =
+            env::var("TRADING212_API_TOKEN").map_err(|_| Trading212Error::MissingApiKey)?;
         let mut base_url = "".to_string();
 
         let target = env::var("T212_TARGET").unwrap_or_else(|_| "live".to_string());
@@ -185,7 +186,10 @@ impl Trading212Client {
         Ok(positions)
     }
 
-    pub async fn request_export(&self, request: &ExportRequest) -> Result<ExportResponse, Trading212Error> {
+    pub async fn request_export(
+        &self,
+        request: &ExportRequest,
+    ) -> Result<ExportResponse, Trading212Error> {
         println!("Sending export request to: {}", self.base_url);
         let response = self
             .client
@@ -198,11 +202,13 @@ impl Trading212Client {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(Trading212Error::RequestFailed(format!(
                 "API returned status code: {} - {}",
-                status,
-                error_text
+                status, error_text
             )));
         }
 
@@ -212,7 +218,10 @@ impl Trading212Client {
             .map_err(|e| Trading212Error::ParseError(e.to_string()))
     }
 
-    pub async fn get_export_status(&self, report_id: i64) -> Result<Option<ExportInfo>, Trading212Error> {
+    pub async fn get_export_status(
+        &self,
+        report_id: i64,
+    ) -> Result<Option<ExportInfo>, Trading212Error> {
         println!("Checking export status at: {}", self.base_url);
         let response = self
             .client
@@ -224,11 +233,13 @@ impl Trading212Client {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(Trading212Error::RequestFailed(format!(
                 "API returned status code: {} - {}",
-                status,
-                error_text
+                status, error_text
             )));
         }
 
@@ -251,11 +262,13 @@ impl Trading212Client {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(Trading212Error::RequestFailed(format!(
                 "Download failed with status code: {} - {}",
-                status,
-                error_text
+                status, error_text
             )));
         }
 

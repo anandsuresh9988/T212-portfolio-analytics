@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2024 Anand S <anandsuresh9988@gmail.com>
- * 
+ *
  * This file is part of the Portfolio Management project.
  */
 
@@ -25,7 +25,7 @@ use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trad
 use crate::utils::currency::{Currency, CurrencyConverter};
 
 #[derive(Template)]
-#[template(path = "dividends1.html")]
+#[template(path = "dividends.html")]
 pub struct DividendsTemplate {
     pub dividends: Vec<DividendInfo>,
 }
@@ -62,7 +62,8 @@ pub struct TickerSummary {
     pub net: String,
 }
 
-pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dyn std::error::Error>> {
+pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dyn std::error::Error>>
+{
     // Find the latest export file
     let entries = std::fs::read_dir(".")?;
     let latest_export = entries
@@ -341,4 +342,4 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
     axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
-} 
+}
