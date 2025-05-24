@@ -20,7 +20,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 
-use crate::models::{dividend::DividendInfo, portfolio::Portfolio};
+use crate::models::{
+    dividend::DividendInfo,
+    portfolio::{self, Portfolio, Position},
+};
 use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trading212Client};
 use crate::utils::currency::{Currency, CurrencyConverter};
 
@@ -38,6 +41,12 @@ pub struct PayoutTemplate {
     pub total_wht: String,
     pub total_net: String,
     pub ticker_summary: Vec<TickerSummary>,
+}
+
+#[derive(Template)]
+#[template(path = "portfolio.html")]
+pub struct PortfolioTemplate {
+    pub positions: Vec<Position>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -243,6 +252,24 @@ pub async fn show_dividends(State(portfolio): State<Arc<Portfolio>>) -> impl Int
     }
 }
 
+// Handler for the dividends page
+pub async fn show_portfolio(State(portfolio): State<Arc<Portfolio>>) -> impl IntoResponse {
+    let positions = &portfolio.positions;
+
+    let template = PortfolioTemplate {
+        positions: positions.to_vec(),
+    };
+
+    match template.render() {
+        Ok(html) => Html(html).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template rendering error: {}", e),
+        )
+            .into_response(),
+    }
+}
+
 // Handler for the payout page
 pub async fn show_payouts() -> impl IntoResponse {
     // Try to download export if needed
@@ -333,6 +360,7 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
     let app = Router::new()
         .route("/", get(show_dividends))
         .route("/payout", get(show_payouts))
+        .route("/portfolio", get(show_portfolio))
         .with_state(shared_portfolio);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
