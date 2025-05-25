@@ -79,8 +79,8 @@
                         <td>£{{ item.current_price }}</td>
                         <td>{{ item.currency }}</td>
                         <td>{{ item.value }}</td>
-                        <td>{{ item.ppl }}</td>
-                        <td>{{ item.ppl_percent }}</td>
+                        <td class="ppl-value">{{ item.ppl }}</td>
+                        <td class="ppl-percent">{{ item.ppl_percent }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -110,6 +110,15 @@
             }
           });
         });
+
+        document.querySelectorAll('.ppl-value, .ppl-percent').forEach(el => {
+        const text = el.textContent.trim();
+        if (text.startsWith('-')) {
+          el.style.color = 'red';
+        } else {
+          el.style.color = 'green';
+        }
+     });
       </script>
       
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
