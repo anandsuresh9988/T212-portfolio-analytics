@@ -358,9 +358,10 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
 
     // Build router with shared state
     let app = Router::new()
-        .route("/", get(show_dividends))
-        .route("/payout", get(show_payouts))
+        .route("/", get(show_portfolio))
         .route("/portfolio", get(show_portfolio))
+        .route("/dividends", get(show_dividends))
+        .route("/payout", get(show_payouts))
         .with_state(shared_portfolio);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
