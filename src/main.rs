@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let converter = CurrencyConverter::load(Currency::USD).await?;
 
     // Initialize Trading212 client
-    let trading212_client = Trading212Client::new(RequestType::portfolio).map_err(|e| {
+    let trading212_client = Trading212Client::new(RequestType::Portfolio).map_err(|e| {
         eprintln!("Trading 212 API error: client initialization failed: {}", e);
         e
     })?;

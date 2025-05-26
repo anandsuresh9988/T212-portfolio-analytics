@@ -1,9 +1,22 @@
-/*
- * Copyright (c) 2024 Anand S <anandsuresh9988@gmail.com>
- *
- * This file is part of the Portfolio Management project.
- */
-use crate::models::portfolio::{Portfolio, Position};
+// File: trading212.rs
+// Copyright (c) 2025 Anand Sureshkumar
+//
+// This source code is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+// See the LICENSE file or visit http://creativecommons.org/licenses/by-nc/4.0/ for details.
+//
+// Permission is granted to use, copy, and modify this code for personal, non-commercial, or educational purposes.
+//
+// Commercial use of this code, in whole or in part, is strictly prohibited without explicit written permission.
+// For commercial licensing or other inquiries, contact: anandsuresh9988@gmail.com
+//
+// Disclaimer:
+// This software interacts with external services (e.g., Trading 212 API) using user-provided credentials.
+// The author is not responsible for any security vulnerabilities, data breaches, account lockouts,
+// financial losses, or other issues arising from the use of this software.
+//
+// USE THIS SOFTWARE AT YOUR OWN RISK.
+
+use crate::models::portfolio::Position;
 use reqwest::header::{HeaderMap, HeaderValue};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -82,9 +95,9 @@ pub struct Trading212Client {
 
 #[derive(PartialEq)]
 pub enum RequestType {
-    portfolio,
-    dividends_paid,
-    export,
+    Portfolio,
+    DividendsPaid,
+    Export,
 }
 
 impl Trading212Client {
@@ -95,21 +108,21 @@ impl Trading212Client {
 
         let target = env::var("T212_TARGET").unwrap_or_else(|_| "live".to_string());
         match rqst_type {
-            RequestType::portfolio => {
+            RequestType::Portfolio => {
                 base_url = if target == "live" {
                     "https://live.trading212.com/api/v0/equity/portfolio".to_string()
                 } else {
                     "https://demo.trading212.com/api/v0/equity/portfolio".to_string()
                 };
             }
-            RequestType::dividends_paid => {
+            RequestType::DividendsPaid => {
                 base_url = if target == "live" {
                     "https://live.trading212.com/api/v0/history/dividends".to_string()
                 } else {
                     "https://demo.trading212.com/api/v0/history/dividends".to_string()
                 };
             }
-            RequestType::export => {
+            RequestType::Export => {
                 base_url = if target == "live" {
                     "https://live.trading212.com/api/v0/history/exports".to_string()
                 } else {
@@ -179,7 +192,7 @@ impl Trading212Client {
                 },
                 div_info: None,
                 yf_ticker: "".to_string(),
-                WHT: Decimal::from_f64(0.0).unwrap_or_default(),
+                wht: Decimal::from_f64(0.0).unwrap_or_default(),
             })
             .collect();
 

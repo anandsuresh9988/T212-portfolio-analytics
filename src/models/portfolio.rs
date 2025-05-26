@@ -1,4 +1,4 @@
-// File: main.rs
+// File: portfolio.rs
 // Copyright (c) 2025 Anand Sureshkumar
 //
 // This source code is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
@@ -31,11 +31,8 @@ use thiserror::Error;
 
 use super::dividend::DividendInfo;
 use crate::utils::currency::Currency;
+use crate::utils::currency::CurrencyConverter;
 use crate::utils::symbol_mapper::extract_symbol;
-use crate::{
-    models::portfolio,
-    utils::currency::{self, CurrencyConverter},
-};
 
 #[derive(Debug, Error)]
 pub enum PortfolioError {
@@ -58,7 +55,7 @@ pub struct Position {
     pub ppl: Decimal, // Profit/Loss
     pub ppl_percent: Decimal,
     pub div_info: Option<DividendInfo>,
-    pub WHT: Decimal,
+    pub wht: Decimal,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -88,7 +85,7 @@ impl Portfolio {
             .map(|p| {
                 let result = extract_symbol(p.ticker.as_str());
                 p.yf_ticker = result.1.yf_ticker.clone();
-                p.WHT = result.1.tax.into();
+                p.wht = result.1.tax.into();
                 result.1.yf_ticker
             })
             .collect::<Vec<_>>();
@@ -103,7 +100,7 @@ impl Portfolio {
             println!("Fetching details form Yfinance...");
             let output = Command::new("python3")
                 .arg("stock_info.py")
-                .arg(&yfinance_tickers.join(","))
+                .arg(yfinance_tickers.join(","))
                 .output()
                 .expect("Failed to run Python script");
             // Check if the Python script ran successfully
@@ -132,8 +129,8 @@ impl Portfolio {
                         .unwrap_or("NA");
 
                     if currency == "GBp" {
-                        p.average_price = p.average_price / Decimal::new(100, 0);
-                        p.current_price = p.current_price / Decimal::new(100, 0);
+                        p.average_price /= Decimal::new(100, 0);
+                        p.current_price /= Decimal::new(100, 0);
                     } else {
                         let target_currency = Currency::GBP;
                         let stock_currency =
@@ -150,8 +147,8 @@ impl Portfolio {
                                     .unwrap_or(1.00),
                             )
                             .unwrap_or(Decimal::new(1, 0));
-                            p.average_price = p.average_price * conv_fact;
-                            p.current_price = p.current_price * conv_fact;
+                            p.average_price *= conv_fact;
+                            p.current_price *= conv_fact;
                             rate_opt =
                                 rate_opt.map(|rate| rate * conv_fact.to_f64().unwrap_or(1.0));
                         }
@@ -181,10 +178,10 @@ fn calculate_dividend(p: &mut Position, yield_opt: Option<f64>, rate_opt: Option
             (Decimal::from_f64(div_yield).unwrap() * p.current_price) / Decimal::new(100, 0);
     }
     let annual_dividend = annual_dividend_per_share * p.quantity;
-    let annual_wht = (annual_dividend * p.WHT) / Decimal::new(100, 0);
+    let annual_wht = (annual_dividend * p.wht) / Decimal::new(100, 0);
     let annual_income_after_wht = annual_dividend - annual_wht;
     let annual_dividend_per_share_after_wht =
-        annual_dividend_per_share * (Decimal::new(100, 0) - p.WHT) / Decimal::new(100, 0);
+        annual_dividend_per_share * (Decimal::new(100, 0) - p.wht) / Decimal::new(100, 0);
 
     let dividend_yield = if !p.current_price.is_zero() {
         (annual_dividend_per_share_after_wht / p.current_price) * Decimal::new(100, 0)
@@ -203,12 +200,12 @@ fn calculate_dividend(p: &mut Position, yield_opt: Option<f64>, rate_opt: Option
         quantity: p.quantity,
         avg_price: p.average_price,
         total_investment: p.quantity * p.average_price,
-        annual_dividend_per_share: annual_dividend_per_share,
-        annual_dividend: annual_dividend,
-        dividend_yield: dividend_yield,
-        yield_on_cost: yield_on_cost,
-        annual_wht: annual_wht,
-        annual_income_after_wht: annual_income_after_wht,
+        annual_dividend_per_share,
+        annual_dividend,
+        dividend_yield,
+        yield_on_cost,
+        annual_wht,
+        annual_income_after_wht,
         current_investment_val: p.quantity * p.current_price,
     };
 

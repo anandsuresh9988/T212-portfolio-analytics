@@ -1,8 +1,20 @@
-/*
- * Copyright (c) 2024 Anand S <anandsuresh9988@gmail.com>
- *
- * This file is part of the Portfolio Management project.
- */
+// File: webui.rs
+// Copyright (c) 2025 Anand Sureshkumar
+//
+// This source code is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+// See the LICENSE file or visit http://creativecommons.org/licenses/by-nc/4.0/ for details.
+//
+// Permission is granted to use, copy, and modify this code for personal, non-commercial, or educational purposes.
+//
+// Commercial use of this code, in whole or in part, is strictly prohibited without explicit written permission.
+// For commercial licensing or other inquiries, contact: anandsuresh9988@gmail.com
+//
+// Disclaimer:
+// This software interacts with external services (e.g., Trading 212 API) using user-provided credentials.
+// The author is not responsible for any security vulnerabilities, data breaches, account lockouts,
+// financial losses, or other issues arising from the use of this software.
+//
+// USE THIS SOFTWARE AT YOUR OWN RISK.
 
 use askama::Template;
 use axum::{
@@ -22,10 +34,9 @@ use tokio::net::TcpListener;
 
 use crate::models::{
     dividend::DividendInfo,
-    portfolio::{self, Portfolio, Position},
+    portfolio::{Portfolio, Position},
 };
 use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trading212Client};
-use crate::utils::currency::{Currency, CurrencyConverter};
 
 #[derive(Template)]
 #[template(path = "dividends.html")]
@@ -129,15 +140,14 @@ pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dy
 
 pub async fn download_export_if_needed() -> Result<(), Box<dyn std::error::Error>> {
     // Check if we already have a recent export
-    if let Some(_) = std::fs::read_dir(".")?
+    if std::fs::read_dir(".")?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| {
+        .any(|entry| {
             entry.path().is_file()
                 && entry.file_name().to_str().map_or(false, |name| {
                     name.starts_with("export_") && name.ends_with(".csv")
                 })
         })
-        .next()
     {
         return Ok(());
     }
@@ -148,7 +158,7 @@ pub async fn download_export_if_needed() -> Result<(), Box<dyn std::error::Error
     dotenv::dotenv().map_err(|e| format!("Failed to load .env file: {}", e))?;
 
     // Initialize Trading212 client for exports
-    let trading212_client = Trading212Client::new(RequestType::export)
+    let trading212_client = Trading212Client::new(RequestType::Export)
         .map_err(|e| format!("Failed to initialize Trading212 client: {}", e))?;
 
     // Calculate date range for the last year

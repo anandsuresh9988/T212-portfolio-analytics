@@ -1,20 +1,29 @@
-/*
- * Copyright (c) 2024 Anand S <anandsuresh9988@gmail.com>
- *
- * This file is part of the Portfolio Management project.
- */
+// File: yahoo_finance.rs
+// Copyright (c) 2025 Anand Sureshkumar
+//
+// This source code is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+// See the LICENSE file or visit http://creativecommons.org/licenses/by-nc/4.0/ for details.
+//
+// Permission is granted to use, copy, and modify this code for personal, non-commercial, or educational purposes.
+//
+// Commercial use of this code, in whole or in part, is strictly prohibited without explicit written permission.
+// For commercial licensing or other inquiries, contact: anandsuresh9988@gmail.com
+//
+// Disclaimer:
+// This software interacts with external services (e.g., Trading 212 API) using user-provided credentials.
+// The author is not responsible for any security vulnerabilities, data breaches, account lockouts,
+// financial losses, or other issues arising from the use of this software.
+//
+// USE THIS SOFTWARE AT YOUR OWN RISK.
+
 use crate::models::dividend::DividendInfo;
 use crate::utils::symbol_mapper::extract_symbol;
-use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::result;
+
 use thiserror::Error;
 use yahoo_finance_api as yahoo;
-
-use chrono::Utc;
-use rust_decimal::prelude::*;
 
 #[derive(Error, Debug)]
 pub enum YahooFinanceError {
@@ -76,7 +85,7 @@ pub async fn get_stock_info(
     avg_price: Decimal,
     curr_price: Decimal,
 ) -> Result<DividendInfo, YahooFinanceError> {
-    let (orig_ticker, ticker_info) = extract_symbol(t212_ticker);
+    let (_orig_ticker, ticker_info) = extract_symbol(t212_ticker);
     let yf_ticker = &ticker_info.yf_ticker;
 
     let mut provider = yahoo::YahooConnector::new().unwrap();
@@ -91,7 +100,7 @@ pub async fn get_stock_info(
     let currency = "USD"; // yahoo_finance_api doesn't return currency, so we assume USD or you can maintain mapping
     if let Ok(quote_summary) = quote_summary {
         let dividend_rate = if let Some(summary) = &quote_summary.quote_summary {
-            if let Some(summary_data) = summary.result.get(0) {
+            if let Some(summary_data) = summary.result.first() {
                 summary_data
                     .summary_detail
                     .as_ref()
@@ -108,7 +117,7 @@ pub async fn get_stock_info(
             Decimal::from_f64(dividend_rate.unwrap_or(0.00)).unwrap_or(Decimal::ZERO);
 
         let dividend_yield: Option<f64> = if let Some(summary) = &quote_summary.quote_summary {
-            if let Some(summary_data) = summary.result.get(0) {
+            if let Some(summary_data) = summary.result.first() {
                 summary_data
                     .summary_detail
                     .as_ref()
