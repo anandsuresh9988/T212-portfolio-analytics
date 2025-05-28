@@ -15,10 +15,10 @@
 // financial losses, or other issues arising from the use of this software.
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
-use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
+use std::{collections::HashMap, fs};
 
 use chrono::{DateTime, Utc};
 use rust_decimal::{
@@ -30,9 +30,9 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::dividend::DividendInfo;
-use crate::utils::currency::Currency;
 use crate::utils::currency::CurrencyConverter;
 use crate::utils::symbol_mapper::extract_symbol;
+use crate::{services::trading212::InstrumentMetadata, utils::currency::Currency};
 
 #[derive(Debug, Error)]
 pub enum PortfolioError {
@@ -73,12 +73,23 @@ impl Portfolio {
         &mut self,
         cache_file: &str,
         converter: CurrencyConverter,
+        instrument_metadata: Vec<InstrumentMetadata>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.positions.is_empty() {
             println!("No positions are available!");
             return Err(Box::new(PortfolioError::NoPositionsError));
         }
 
+        let meta_data_lookup: HashMap<_, _> = instrument_metadata
+            .iter()
+            .map(|inst| (inst.ticker.clone(), inst.currency_code.clone()))
+            .collect();
+        // Update vec2 based on the lookup map
+        for inst in &mut self.positions {
+            if let Some(code) = meta_data_lookup.get(&inst.ticker) {
+                inst.currency = (*code).clone();
+            }
+        }
         let yfinance_tickers = self
             .positions
             .iter_mut()
@@ -123,22 +134,23 @@ impl Portfolio {
                     let yield_opt = info.get("dividendYield").and_then(|v| v.as_f64());
                     let mut rate_opt = info.get("dividendRate").and_then(|v| v.as_f64());
 
-                    let currency = info
-                        .get("currency")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("NA");
+                    // let currency = info
+                    //     .get("currency")
+                    //     .and_then(|v| v.as_str())
+                    //     .unwrap_or("NA");
 
-                    if currency == "GBp" {
+                    if p.currency == "GBX" {
                         p.average_price /= Decimal::new(100, 0);
                         p.current_price /= Decimal::new(100, 0);
+                        p.value /= Decimal::new(100, 0);
                     } else {
                         let target_currency = Currency::GBP;
                         let stock_currency =
-                            Currency::from_str(currency).unwrap_or(Currency::UnSupported);
+                            Currency::from_str(&p.currency).unwrap_or(Currency::UnSupported);
                         if stock_currency == Currency::UnSupported {
                             println!(
                                 "Add support for currency = {:?} stock = {}",
-                                currency, p.yf_ticker
+                                p.currency, p.yf_ticker
                             );
                         } else {
                             let conv_fact = Decimal::from_f64(
@@ -149,6 +161,7 @@ impl Portfolio {
                             .unwrap_or(Decimal::new(1, 0));
                             p.average_price *= conv_fact;
                             p.current_price *= conv_fact;
+                            p.value *= conv_fact;
                             rate_opt =
                                 rate_opt.map(|rate| rate * conv_fact.to_f64().unwrap_or(1.0));
                         }

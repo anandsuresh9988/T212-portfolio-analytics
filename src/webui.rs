@@ -26,6 +26,7 @@ use axum::{
 };
 
 use chrono::{Duration, NaiveDateTime, Utc};
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -58,6 +59,9 @@ pub struct PayoutTemplate {
 #[template(path = "portfolio.html")]
 pub struct PortfolioTemplate {
     pub positions: Vec<Position>,
+    pub total_invested: String,
+    pub total_current_value: String,
+    pub total_pl: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -265,9 +269,27 @@ pub async fn show_dividends(State(portfolio): State<Arc<Portfolio>>) -> impl Int
 // Handler for the dividends page
 pub async fn show_portfolio(State(portfolio): State<Arc<Portfolio>>) -> impl IntoResponse {
     let positions = &portfolio.positions;
+    let total_invested: f64 = portfolio
+        .positions
+        .iter()
+        .map(|p| Decimal::to_f64(&(p.average_price * p.quantity)).unwrap_or(0.0))
+        .sum();
+    let total_current_value: f64 = portfolio
+        .positions
+        .iter()
+        .map(|p| Decimal::to_f64(&p.value).unwrap_or(0.0))
+        .sum();
+    let total_pl: f64 = portfolio
+        .positions
+        .iter()
+        .map(|p| Decimal::to_f64(&p.ppl).unwrap_or(0.0))
+        .sum();
 
     let template = PortfolioTemplate {
         positions: positions.to_vec(),
+        total_invested: format!("{:.2}", total_invested),
+        total_current_value: format!("{:.2}", total_current_value),
+        total_pl: format!("{:.2}", total_pl),
     };
 
     match template.render() {

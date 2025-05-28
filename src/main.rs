@@ -43,8 +43,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         e
     })?;
 
+    // Initialize Trading212 client
+    let trading212_client_metadata = Trading212Client::new(RequestType::InstrumentsMetadata)
+        .map_err(|e| {
+            eprintln!("Trading 212 API error: client initialization failed: {}", e);
+            e
+        })?;
+
+    // Fetch open positions
+    let instrument_metatdata = trading212_client_metadata
+        .get_instruments_metadata()
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "Trading 212 API error: failed to get instrument metadata: {}",
+                e
+            );
+            e
+        })?;
+
+        println!("Instrument metadata {:?}", instrument_metatdata);
+
     // Process portfolio with cache file and currency converter
-    portfolio.process(cache_file, converter)?;
+    portfolio.process(cache_file, converter, instrument_metatdata)?;
 
     // Start the web server
     webui::start_server(portfolio).await?;

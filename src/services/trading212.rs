@@ -42,6 +42,7 @@ struct Trading212Position {
     quantity: f64,
     averagePrice: f64,
     currentPrice: f64,
+    ppl: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,6 +99,25 @@ pub enum RequestType {
     Portfolio,
     DividendsPaid,
     Export,
+    InstrumentsMetadata,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InstrumentMetadata {
+    #[serde(rename = "addedOn")]
+    pub added_on: String,
+    #[serde(rename = "currencyCode")]
+    pub currency_code: String,
+    #[serde(rename = "isin")]
+    pub isin: String,
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "shortName")]
+    pub short_name: String,
+    #[serde(rename = "ticker")]
+    pub ticker: String,
+    #[serde(rename = "type")]
+    pub instrument_type: String,
 }
 
 impl Trading212Client {
@@ -127,6 +147,13 @@ impl Trading212Client {
                     "https://live.trading212.com/api/v0/history/exports".to_string()
                 } else {
                     "https://demo.trading212.com/api/v0/history/exports".to_string()
+                };
+            }
+            RequestType::InstrumentsMetadata => {
+                base_url = if target == "live" {
+                    "https://live.trading212.com/api/v0/equity/metadata/instruments".to_string()
+                } else {
+                    "https://demo.trading212.com/api/v0/equity/metadata/instruments".to_string()
                 };
             }
         }
@@ -182,8 +209,7 @@ impl Trading212Client {
                 current_price: Decimal::from_f64(p.currentPrice).unwrap_or_default(),
                 currency: "".to_string(), // Will be populated later
                 value: Decimal::from_f64(p.quantity * p.currentPrice).unwrap_or_default(),
-                ppl: Decimal::from_f64(p.quantity * (p.currentPrice - p.averagePrice))
-                    .unwrap_or_default(),
+                ppl: Decimal::from_f64(p.ppl).unwrap_or_default(),
                 ppl_percent: if p.averagePrice > 0.0 {
                     Decimal::from_f64((p.currentPrice / p.averagePrice - 1.0) * 100.0)
                         .unwrap_or_default()
@@ -289,5 +315,35 @@ impl Trading212Client {
             .text()
             .await
             .map_err(|e| Trading212Error::RequestFailed(e.to_string()))
+    }
+
+    pub async fn get_instruments_metadata(
+        &self,
+    ) -> Result<Vec<InstrumentMetadata>, Trading212Error> {
+        println!("Sending export request to: {}", self.base_url);
+        let response = self
+            .client
+            .get(&self.base_url)
+            .headers(self.headers.clone())
+            .send()
+            .await
+            .map_err(|e| Trading212Error::RequestFailed(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(Trading212Error::RequestFailed(format!(
+                "API returned status code: {} - {}",
+                status, error_text
+            )));
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|e| Trading212Error::ParseError(e.to_string()))
     }
 }
