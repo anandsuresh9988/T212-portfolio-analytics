@@ -60,7 +60,8 @@
             </div>
 
             <div class="table-responsive-wrapper" style="max-height: 600px; overflow-y: auto;">
-            <table class="table table-striped table-hover">
+            <button id="exportButton" class="btn btn-primary mb-3">Export to CSV</button>
+            <table class="table table-striped table-hover" id="payoutTable">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -91,6 +92,64 @@
                 </tbody>
             </table>
             </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const table = document.getElementById('payoutTable');
+                    if (table) {
+                        const rows = table.querySelectorAll('tbody tr');
+                        rows.forEach(row => {
+                            row.querySelectorAll('td').forEach((cell, index) => {
+                                if (index === 1) return; // Skip ISIN for formatting
+                                const text = cell.textContent.trim().replace(/[^0-9.-]/g, '');
+                                const value = parseFloat(text);
+                                if (!isNaN(value)) {
+                                    const formattedValue = value.toFixed(2);
+                                    if (cell.textContent.includes('£')) {
+                                        cell.textContent = `£${formattedValue}`;
+                                    } else {
+                                        cell.textContent = formattedValue;
+                                    }
+                                }
+                            });
+                        });
+                    }
+                    document.querySelectorAll('.ppl-value, .ppl-percent').forEach(el => {
+                        const text = el.textContent.trim();
+                        el.style.color = text.startsWith('-') ? 'red' : 'green';
+                    });
+                    document.getElementById('exportButton').addEventListener('click', function() {
+                        const table = document.getElementById('payoutTable');
+                        let csv = [];
+                        const headers = [];
+                        table.querySelectorAll('thead th').forEach(cell => {
+                            headers.push(cell.textContent.trim());
+                        });
+                        csv.push(headers.join(','));
+                        table.querySelectorAll('tbody tr').forEach(row => {
+                            const rowData = [];
+                            row.querySelectorAll('td').forEach(cell => {
+                                let value = cell.textContent.trim();
+                                if (value.includes('£')) {
+                                    const numericValue = parseFloat(value.replace(/[^0-9.-]/g, ''));
+                                    value = numericValue.toFixed(2);
+                                }
+                                rowData.push(value);
+                            });
+                            csv.push(rowData.join(','));
+                        });
+                        const csvContent = csv.join('\n');
+                        const blob = new Blob([csvContent], { type: 'text/csv' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.setAttribute('hidden', '');
+                        a.setAttribute('href', url);
+                        a.setAttribute('download', 'dividend_payouts.csv');
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    });
+                });
+            </script>
 
             <div class="mt-5">
                 <h4>Dividends by Ticker</h4>
@@ -136,26 +195,6 @@
 
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Format all numeric cells to 2 decimal places
-            const cells = document.querySelectorAll('td:not(:first-child)');
-            cells.forEach(cell => {
-                const text = cell.textContent.trim().replace(/[^0-9.-]/g, ''); // Remove currency symbols like £
-                const value = parseFloat(text);
-                if (!isNaN(value)) {
-                    const formattedValue = value.toFixed(2);
-                    // Add the currency symbol back, if needed
-                    if (cell.textContent.includes('£')) {
-                        cell.textContent = `£${formattedValue}`;
-                    } else {
-                        cell.textContent = formattedValue;
-                    }
-                }
-            });
-        });
-    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
