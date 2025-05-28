@@ -25,7 +25,7 @@ use axum::{
     Router,
 };
 
-use chrono::{Duration, NaiveDateTime, Utc};
+use chrono::{Duration, NaiveDate, NaiveDateTime, Utc};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -52,6 +52,7 @@ pub struct PayoutTemplate {
     pub total_dividends: String,
     pub total_wht: String,
     pub ticker_summary: Vec<TickerSummary>,
+    pub monthly_div_summary: Vec<(String, f64)>,
 }
 
 #[derive(Template)]
@@ -83,6 +84,26 @@ pub struct TickerSummary {
     pub wht: String,
 }
 
+pub fn calculate_monthly_dividends(records: &[DividendRecord]) -> Vec<(String, f64)> {
+    let mut monthly_sums: HashMap<String, f64> = HashMap::new();
+
+    for record in records {
+        if let Ok(date) = NaiveDate::parse_from_str(&record.date, "%Y-%m-%d %H:%M:%S") {
+            let month_name = date.format("%b %Y").to_string(); // "Feb 2025"
+            if let Ok(amount) = record.total.parse::<f64>() {
+                *monthly_sums.entry(month_name).or_insert(0.0) += amount;
+            }
+        }
+    }
+    // Convert the HashMap into a sorted Vec of tuples
+    let mut result: Vec<(String, f64)> = monthly_sums.into_iter().collect();
+    result.sort_by_key(|(month, _)| {
+        NaiveDate::parse_from_str(&(month.to_string() + " 01"), "%b %Y %d").unwrap_or_default()
+    });
+    result.reverse();
+
+    result
+}
 pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dyn std::error::Error>>
 {
     // Find the latest export file
@@ -359,11 +380,14 @@ pub async fn show_payouts() -> impl IntoResponse {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    let monthly_dividends = calculate_monthly_dividends(&records);
+
     let template = PayoutTemplate {
         records,
         total_dividends: format!("{:.2}", total_dividends),
         total_wht: format!("{:.2}", total_wht),
         ticker_summary,
+        monthly_div_summary: monthly_dividends,
     };
 
     match template.render() {
