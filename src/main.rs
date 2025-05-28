@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             e
         })?;
 
-        println!("Instrument metadata {:?}", instrument_metatdata);
+    println!("Instrument metadata {:?}", instrument_metatdata);
 
     // Process portfolio with cache file and currency converter
     portfolio.process(cache_file, converter, instrument_metatdata)?;

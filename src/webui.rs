@@ -51,7 +51,6 @@ pub struct PayoutTemplate {
     pub records: Vec<DividendRecord>,
     pub total_dividends: String,
     pub total_wht: String,
-    pub total_net: String,
     pub ticker_summary: Vec<TickerSummary>,
 }
 
@@ -75,7 +74,6 @@ pub struct DividendRecord {
     pub currency: String,
     pub total: String,
     pub withholding_tax: String,
-    pub net_amount: String,
 }
 
 #[derive(Debug, Clone)]
@@ -83,7 +81,6 @@ pub struct TickerSummary {
     pub ticker: String,
     pub total: String,
     pub wht: String,
-    pub net: String,
 }
 
 pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dyn std::error::Error>>
@@ -131,7 +128,6 @@ pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dy
                 currency: record[7].to_string(),
                 total: format!("{:.2}", total),
                 withholding_tax: format!("{:.2}", wht),
-                net_amount: format!("{:.2}", total - wht),
             });
         }
     }
@@ -344,8 +340,6 @@ pub async fn show_payouts() -> impl IntoResponse {
         entry.1 += wht;
     }
 
-    let total_net = total_dividends - total_wht;
-
     // Create ticker summary
     let mut ticker_summary: Vec<TickerSummary> = ticker_totals
         .into_iter()
@@ -353,7 +347,6 @@ pub async fn show_payouts() -> impl IntoResponse {
             ticker,
             total: format!("{:.2}", total),
             wht: format!("{:.2}", wht),
-            net: format!("{:.2}", total - wht),
         })
         .collect();
 
@@ -370,7 +363,6 @@ pub async fn show_payouts() -> impl IntoResponse {
         records,
         total_dividends: format!("{:.2}", total_dividends),
         total_wht: format!("{:.2}", total_wht),
-        total_net: format!("{:.2}", total_net),
         ticker_summary,
     };
 
