@@ -25,13 +25,15 @@ use axum::{
     Router,
 };
 
-use chrono::{Duration, NaiveDate, NaiveDateTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
+use tokio::task;
+use tokio::time::{sleep, Duration};
 
 use crate::models::{
     dividend::DividendInfo,
@@ -185,7 +187,7 @@ pub async fn download_export_if_needed() -> Result<(), Box<dyn std::error::Error
 
     // Calculate date range for the last year
     let now = Utc::now();
-    let one_year_ago = now - Duration::days(365);
+    let one_year_ago = now - chrono::Duration::days(365);
 
     // Create the export request
     let export_request = ExportRequest {
@@ -265,7 +267,8 @@ pub async fn download_export_if_needed() -> Result<(), Box<dyn std::error::Error
 }
 
 // Handler for the dividends page
-pub async fn show_dividends(State(portfolio): State<Arc<Portfolio>>) -> impl IntoResponse {
+pub async fn show_dividends(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> impl IntoResponse {
+    let portfolio = portfolio.lock().unwrap();
     let dividends: Vec<DividendInfo> = portfolio
         .positions
         .iter()
@@ -293,7 +296,8 @@ pub async fn show_dividends(State(portfolio): State<Arc<Portfolio>>) -> impl Int
 }
 
 // Handler for the dividends page
-pub async fn show_portfolio(State(portfolio): State<Arc<Portfolio>>) -> impl IntoResponse {
+pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> impl IntoResponse {
+    let portfolio = portfolio.lock().unwrap();
     let positions = &portfolio.positions;
     let total_invested: f64 = portfolio
         .positions
@@ -410,22 +414,33 @@ pub async fn show_payouts() -> impl IntoResponse {
 }
 
 pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error::Error>> {
-    // Wrap portfolio in Arc to share state safely with axum handlers
-    let shared_portfolio = Arc::new(portfolio);
+    let shared_portfolio = Arc::new(Mutex::new(portfolio));
 
-    // Build router with shared state
     let app = Router::new()
         .route("/", get(show_portfolio))
         .route("/portfolio", get(show_portfolio))
         .route("/dividends", get(show_dividends))
         .route("/payout", get(show_payouts))
-        .with_state(shared_portfolio);
+        .with_state(shared_portfolio.clone());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    let listener = TcpListener::bind(addr).await?;
-    println!("Server running at http://127.0.0.1:3000");
+    // Spawn a background async task to mutate the portfolio in place
+    let portfolio_for_task = shared_portfolio.clone();
+    task::spawn(async move {
+        loop {
+            {
+                let mut portfolio = portfolio_for_task.lock().unwrap();
+                // Mutate fields in place (example: increment total_value)
+                portfolio.total_value += rust_decimal::Decimal::new(1, 0);
+                // You can update positions, fetch new data, etc.
+            }
+            sleep(Duration::from_secs(10)).await;
+        }
+    });
 
-    axum::serve(listener, app.into_make_service()).await?;
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3001));
 
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await?;
     Ok(())
 }

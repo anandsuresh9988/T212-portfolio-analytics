@@ -198,6 +198,7 @@ impl Trading212Client {
             .json()
             .await
             .map_err(|e| Trading212Error::ParseError(e.to_string()))?;
+        //println!("pso ={:?}", positions);
 
         let positions = positions
             .into_iter()

@@ -30,6 +30,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::dividend::DividendInfo;
+use crate::services::trading212::{RequestType, Trading212Client};
 use crate::utils::currency::CurrencyConverter;
 use crate::utils::symbol_mapper::extract_symbol;
 use crate::{services::trading212::InstrumentMetadata, utils::currency::Currency};
@@ -69,6 +70,24 @@ pub struct Portfolio {
 }
 
 impl Portfolio {
+    pub async fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Initialize Trading212 client
+        let trading212_client = Trading212Client::new(RequestType::Portfolio).map_err(|e| {
+            eprintln!("Trading 212 API error: client initialization failed: {}", e);
+            e
+        })?;
+
+        // Fetch open positions
+        self.positions = trading212_client.get_open_positions().await.map_err(|e| {
+            eprintln!("Trading 212 API error: failed to get open positions: {}", e);
+            e
+        })?;
+
+        //println!("{:?}", self.positions);
+
+        Ok(())
+    }
+
     pub fn process(
         &mut self,
         cache_file: &str,
