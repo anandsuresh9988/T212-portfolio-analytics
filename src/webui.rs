@@ -35,11 +35,14 @@ use tokio::net::TcpListener;
 use tokio::task;
 use tokio::time::{sleep, Duration};
 
-use crate::models::{
-    dividend::DividendInfo,
-    portfolio::{Portfolio, Position},
-};
 use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trading212Client};
+use crate::{
+    models::{
+        dividend::DividendInfo,
+        portfolio::{Portfolio, Position},
+    },
+    services::orchestrator::Orchestrator,
+};
 
 #[derive(Template)]
 #[template(path = "dividends.html")]
@@ -65,6 +68,7 @@ pub struct PortfolioTemplate {
     pub total_invested: String,
     pub total_current_value: String,
     pub total_pl: String,
+    pub last_updated: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -320,6 +324,7 @@ pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
         total_invested: format!("{:.2}", total_invested),
         total_current_value: format!("{:.2}", total_current_value),
         total_pl: format!("{:.2}", total_pl),
+        last_updated: portfolio.last_updated.format("%Y-%m-%d %H:%M:%S").to_string(),
     };
 
     match template.render() {
@@ -423,17 +428,39 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
         .route("/payout", get(show_payouts))
         .with_state(shared_portfolio.clone());
 
-    // Spawn a background async task to mutate the portfolio in place
+    // Spawn a background async task to update the portfolio periodically
     let portfolio_for_task = shared_portfolio.clone();
     task::spawn(async move {
         loop {
-            {
-                let mut portfolio = portfolio_for_task.lock().unwrap();
-                // Mutate fields in place (example: increment total_value)
-                portfolio.total_value += rust_decimal::Decimal::new(1, 0);
-                // You can update positions, fetch new data, etc.
+            sleep(Duration::from_secs(60)).await;
+            // Create a new portfolio instance and update it
+            let mut new_portfolio = Portfolio::default();
+            if let Err(e) = new_portfolio.init().await {
+                eprintln!("Failed to initialize portfolio: {}", e);
             }
-            sleep(Duration::from_secs(10)).await;
+
+
+            // Process the new portfolio data
+            let orchestrator = Orchestrator::new().await.unwrap();
+            if let Err(e) = new_portfolio.process(
+                "cache.json",
+                orchestrator.currency_converter,
+                orchestrator.instrument_metadata,
+            ) {
+                eprintln!("Failed to process portfolio: {}", e);
+            }
+
+
+            // Take the lock only briefly to swap in the new data
+            {
+                let mut shared = portfolio_for_task.lock().unwrap();
+                new_portfolio.update_count = shared.update_count + 1;
+                *shared = new_portfolio;
+                println!("Portfolio update count: {}", shared.update_count);
+            }
+
+            // Wait 15 minutes before next update
+            sleep(Duration::from_secs(60)).await;
         }
     });
 

@@ -67,6 +67,7 @@ pub struct Portfolio {
     pub total_ppl: Decimal,
     pub total_ppl_percent: Decimal,
     pub last_updated: DateTime<Utc>,
+    pub update_count: i128,
 }
 
 impl Portfolio {
@@ -153,11 +154,6 @@ impl Portfolio {
                     let yield_opt = info.get("dividendYield").and_then(|v| v.as_f64());
                     let mut rate_opt = info.get("dividendRate").and_then(|v| v.as_f64());
 
-                    // let currency = info
-                    //     .get("currency")
-                    //     .and_then(|v| v.as_str())
-                    //     .unwrap_or("NA");
-
                     if p.currency == "GBX" {
                         p.average_price /= Decimal::new(100, 0);
                         p.current_price /= Decimal::new(100, 0);
@@ -197,6 +193,7 @@ impl Portfolio {
                 }
             })
             .collect();
+        self.last_updated = Utc::now();
         Ok(())
     }
 }
