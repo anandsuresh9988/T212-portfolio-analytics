@@ -43,6 +43,7 @@ use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trad
 #[template(path = "dividends.html")]
 pub struct DividendsTemplate {
     pub dividends: Vec<DividendInfo>,
+    pub div_per_year: String,
 }
 
 #[derive(Template)]
@@ -215,7 +216,7 @@ pub async fn download_export_if_needed() -> Result<(), Box<dyn std::error::Error
     // Wait and check for export completion
     for attempt in 1..=30 {
         println!("Checking export status (attempt {}/30)...", attempt);
-        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
 
         if let Some(export_info) = trading212_client
             .get_export_status(export_response.report_id)
@@ -271,7 +272,15 @@ pub async fn show_dividends(State(portfolio): State<Arc<Portfolio>>) -> impl Int
         .filter_map(|pos| pos.div_info.clone())
         .collect();
 
-    let template = DividendsTemplate { dividends };
+    let div_per_year: f64 = dividends
+        .iter()
+        .map(|item| Decimal::to_f64(&item.annual_income_after_wht).unwrap_or(0.0))
+        .sum();
+
+    let template = DividendsTemplate {
+        dividends,
+        div_per_year: format!("{:.2}", div_per_year),
+    };
 
     match template.render() {
         Ok(html) => Html(html).into_response(),
