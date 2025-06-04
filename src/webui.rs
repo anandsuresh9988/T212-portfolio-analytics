@@ -26,12 +26,10 @@ use axum::{
 };
 
 use chrono::{NaiveDate, NaiveDateTime, Utc};
-use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use tokio::net::TcpListener;
 use tokio::task;
 use tokio::time::{sleep, Duration};
 
@@ -281,7 +279,7 @@ pub async fn show_dividends(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
 
     let div_per_year: f64 = dividends
         .iter()
-        .map(|item| Decimal::to_f64(&item.annual_income_after_wht).unwrap_or(0.0))
+        .map(|item| item.annual_income_after_wht)
         .sum();
 
     let template = DividendsTemplate {
@@ -306,17 +304,17 @@ pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
     let total_invested: f64 = portfolio
         .positions
         .iter()
-        .map(|p| Decimal::to_f64(&(p.average_price * p.quantity)).unwrap_or(0.0))
+        .map(|p| p.average_price * p.quantity)
         .sum();
     let total_current_value: f64 = portfolio
         .positions
         .iter()
-        .map(|p| Decimal::to_f64(&p.value).unwrap_or(0.0))
+        .map(|p| p.value)
         .sum();
     let total_pl: f64 = portfolio
         .positions
         .iter()
-        .map(|p| Decimal::to_f64(&p.ppl).unwrap_or(0.0))
+        .map(|p| p.ppl)
         .sum();
 
     let template = PortfolioTemplate {

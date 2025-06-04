@@ -21,10 +21,6 @@ use std::str::FromStr;
 use std::{collections::HashMap, fs};
 
 use chrono::{DateTime, Utc};
-use rust_decimal::{
-    prelude::{FromPrimitive, ToPrimitive},
-    Decimal,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
@@ -48,24 +44,24 @@ pub enum PortfolioError {
 pub struct Position {
     pub ticker: String,
     pub yf_ticker: String,
-    pub quantity: Decimal,
-    pub average_price: Decimal,
-    pub current_price: Decimal,
+    pub quantity: f64,
+    pub average_price: f64,
+    pub current_price: f64,
     pub currency: String,
-    pub value: Decimal,
-    pub ppl: Decimal, // Profit/Loss
-    pub ppl_percent: Decimal,
+    pub value: f64,
+    pub ppl: f64, // Profit/Loss
+    pub ppl_percent: f64,
     pub div_info: Option<DividendInfo>,
-    pub wht: Decimal,
+    pub wht: f64,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Portfolio {
     pub positions: Vec<Position>,
-    pub total_value: Decimal,
-    pub total_cost: Decimal,
-    pub total_ppl: Decimal,
-    pub total_ppl_percent: Decimal,
+    pub total_value: f64,
+    pub total_cost: f64,
+    pub total_ppl: f64,
+    pub total_ppl_percent: f64,
     pub last_updated: DateTime<Utc>,
     pub update_count: i128,
 }
@@ -155,9 +151,9 @@ impl Portfolio {
                     let mut rate_opt = info.get("dividendRate").and_then(|v| v.as_f64());
 
                     if p.currency == "GBX" {
-                        p.average_price /= Decimal::new(100, 0);
-                        p.current_price /= Decimal::new(100, 0);
-                        p.value /= Decimal::new(100, 0);
+                        p.average_price /= 100.0;
+                        p.current_price /= 100.0;
+                        p.value /= 100.0;
                     } else {
                         let target_currency = Currency::GBP;
                         let stock_currency =
@@ -168,17 +164,13 @@ impl Portfolio {
                                 p.currency, p.yf_ticker
                             );
                         } else {
-                            let conv_fact = Decimal::from_f64(
-                                converter
-                                    .convert(1.00, stock_currency, target_currency)
-                                    .unwrap_or(1.00),
-                            )
-                            .unwrap_or(Decimal::new(1, 0));
+                            let conv_fact = converter
+                                .convert(1.00, stock_currency, target_currency)
+                                .unwrap_or(1.00);
                             p.average_price *= conv_fact;
                             p.current_price *= conv_fact;
                             p.value *= conv_fact;
-                            rate_opt =
-                                rate_opt.map(|rate| rate * conv_fact.to_f64().unwrap_or(1.0));
+                            rate_opt = rate_opt.map(|rate| rate * conv_fact);
                         }
                     }
 
@@ -199,29 +191,27 @@ impl Portfolio {
 }
 
 fn calculate_dividend(p: &mut Position, yield_opt: Option<f64>, rate_opt: Option<f64>) {
-    let mut annual_dividend_per_share = Decimal::new(0, 0);
+    let mut annual_dividend_per_share = 0.0;
     if let Some(rate) = rate_opt {
-        annual_dividend_per_share = Decimal::from_f64(rate).unwrap_or_default();
+        annual_dividend_per_share = rate;
     } else if let Some(div_yield) = yield_opt {
-        annual_dividend_per_share =
-            (Decimal::from_f64(div_yield).unwrap() * p.current_price) / Decimal::new(100, 0);
+        annual_dividend_per_share = (div_yield * p.current_price) / 100.0;
     }
     let annual_dividend = annual_dividend_per_share * p.quantity;
-    let annual_wht = (annual_dividend * p.wht) / Decimal::new(100, 0);
+    let annual_wht = (annual_dividend * p.wht) / 100.0;
     let annual_income_after_wht = annual_dividend - annual_wht;
-    let annual_dividend_per_share_after_wht =
-        annual_dividend_per_share * (Decimal::new(100, 0) - p.wht) / Decimal::new(100, 0);
+    let annual_dividend_per_share_after_wht = annual_dividend_per_share * (100.0 - p.wht) / 100.0;
 
-    let dividend_yield = if !p.current_price.is_zero() {
-        (annual_dividend_per_share_after_wht / p.current_price) * Decimal::new(100, 0)
+    let dividend_yield = if p.current_price != 0.0 {
+        (annual_dividend_per_share_after_wht / p.current_price) * 100.0
     } else {
-        Decimal::new(0, 0)
+        0.0
     };
 
-    let yield_on_cost = if !p.average_price.is_zero() {
-        (annual_dividend_per_share_after_wht / p.average_price) * Decimal::new(100, 0)
+    let yield_on_cost = if p.average_price != 0.0 {
+        (annual_dividend_per_share_after_wht / p.average_price) * 100.0
     } else {
-        Decimal::new(0, 0)
+        0.0
     };
 
     let div_info = DividendInfo {

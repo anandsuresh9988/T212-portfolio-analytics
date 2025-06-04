@@ -18,3 +18,4 @@
 
 pub mod currency;
 pub mod symbol_mapper;
+pub mod settings;

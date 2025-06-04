@@ -18,8 +18,6 @@
 
 use crate::models::portfolio::Position;
 use reqwest::header::{HeaderMap, HeaderValue};
-use rust_decimal::prelude::FromPrimitive;
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::env;
 use thiserror::Error;
@@ -43,6 +41,7 @@ struct Trading212Position {
     averagePrice: f64,
     currentPrice: f64,
     ppl: f64,
+    currency: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -205,21 +204,20 @@ impl Trading212Client {
             .filter(|p| p.quantity > 0.0)
             .map(|p| Position {
                 ticker: p.ticker,
-                quantity: Decimal::from_f64(p.quantity).unwrap_or_default(),
-                average_price: Decimal::from_f64(p.averagePrice).unwrap_or_default(),
-                current_price: Decimal::from_f64(p.currentPrice).unwrap_or_default(),
-                currency: "".to_string(), // Will be populated later
-                value: Decimal::from_f64(p.quantity * p.currentPrice).unwrap_or_default(),
-                ppl: Decimal::from_f64(p.ppl).unwrap_or_default(),
-                ppl_percent: if p.averagePrice > 0.0 {
-                    Decimal::from_f64((p.currentPrice / p.averagePrice - 1.0) * 100.0)
-                        .unwrap_or_default()
+                quantity: p.quantity,
+                average_price: p.averagePrice,
+                current_price: p.currentPrice,
+                currency: p.currency.unwrap_or_else(|| "GBP".to_string()),
+                value: p.quantity * p.currentPrice,
+                ppl: p.ppl,
+                ppl_percent: if p.averagePrice != 0.0 {
+                    (p.currentPrice / p.averagePrice - 1.0) * 100.0
                 } else {
-                    Decimal::from_f64(0.0).unwrap_or_default()
+                    0.0
                 },
                 div_info: None,
-                yf_ticker: "".to_string(),
-                wht: Decimal::from_f64(0.0).unwrap_or_default(),
+                yf_ticker: String::new(),
+                wht: 0.0,
             })
             .collect();
 

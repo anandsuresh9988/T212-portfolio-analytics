@@ -53,21 +53,28 @@ flowchart TD
    git clone <repo-url>
    cd T212-portfolio-analytics
    ```
-2. **Set your Trading212 API key:**
+2. **Set up Python virtual environment:**
+   ```sh
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+   (Replace `python3` with `python` if necessary on your system)
+3. **Set your Trading212 API key:**
    - Create a `.env` file in the project root:
      ```sh
      echo "TRADING212_API_TOKEN=your_api_key_here" > .env
      ```
    - (Optional) Set `T212_TARGET=live` or `T212_TARGET=demo` in `.env`.
-3. **Build the project:**
+4. **Build the project:**
    ```sh
    cargo build
    ```
-4. **Run the application:**
+5. **Run the application:**
    ```sh
    cargo run
    ```
-5. **Open your browser:**
+6. **Open your browser:**
    - Go to [http://localhost:3001](http://localhost:3001)
 
 ## Usage

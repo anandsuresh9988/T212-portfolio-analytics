@@ -16,11 +16,8 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use crate::services::trading212::RequestType;
-use crate::utils::currency::Currency;
-use crate::{services::trading212::InstrumentMetadata, utils::currency::CurrencyConverter};
-
-use super::trading212::Trading212Client;
+use crate::services::trading212::{InstrumentMetadata, RequestType, Trading212Client};
+use crate::utils::currency::CurrencyConverter;
 
 pub struct Orchestrator {
     pub currency_converter: CurrencyConverter,
@@ -28,32 +25,20 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub async fn new() -> Result<Orchestrator, Box<dyn std::error::Error>> {
-        // Initialize Trading212 client
-        let trading212_client_metadata = Trading212Client::new(RequestType::InstrumentsMetadata)
-            .map_err(|e| {
-                eprintln!("Trading 212 API error: client initialization failed: {}", e);
-                e
-            })?;
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        // Initialize Trading212 client for metadata
+        let trading212_client = Trading212Client::new(RequestType::InstrumentsMetadata)?;
 
-        // Fetch instrument metadata
-        let instrument_metatdata = trading212_client_metadata
-            .get_instruments_metadata()
-            .await
-            .map_err(|e| {
-                eprintln!(
-                    "Trading 212 API error: failed to get instrument metadata: {}",
-                    e
-                );
-                e
-            })?;
+        // Get instrument metadata
+        let instrument_metadata = trading212_client.get_instruments_metadata().await?;
 
-        // Load currency rates with USD base
-        let converter = CurrencyConverter::load(Currency::USD).await?;
+        // Create currency converter with fixed rates
+        // These rates should be updated periodically in a real application
+        let currency_converter = CurrencyConverter::new(1.25, 1.15); // GBP to USD and EUR rates
 
-        Ok(Orchestrator {
-            currency_converter: converter,
-            instrument_metadata: instrument_metatdata,
+        Ok(Self {
+            currency_converter,
+            instrument_metadata,
         })
     }
 }

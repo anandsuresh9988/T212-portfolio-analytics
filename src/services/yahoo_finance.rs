@@ -18,8 +18,6 @@
 
 use crate::models::dividend::DividendInfo;
 use crate::utils::symbol_mapper::extract_symbol;
-use rust_decimal::prelude::*;
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use thiserror::Error;
@@ -60,10 +58,10 @@ struct YahooFinanceResult {
 #[derive(Debug, Serialize, Deserialize)]
 struct SummaryDetail {
     #[serde(rename = "dividendRate")]
-    dividend_rate: Option<ValueWrapper>,
+    dividend_rate: Option<f64>,
 
     #[serde(rename = "dividendYield")]
-    dividend_yield: Option<ValueWrapper>,
+    dividend_yield: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,16 +72,11 @@ struct Price {
     currency: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ValueWrapper {
-    raw: Option<f64>,
-}
-
 pub async fn get_stock_info(
     t212_ticker: &str,
-    quantity: Decimal,
-    avg_price: Decimal,
-    curr_price: Decimal,
+    quantity: f64,
+    avg_price: f64,
+    curr_price: f64,
 ) -> Result<DividendInfo, YahooFinanceError> {
     let (_orig_ticker, ticker_info) = extract_symbol(t212_ticker);
     let yf_ticker = &ticker_info.yf_ticker;
@@ -95,8 +88,8 @@ pub async fn get_stock_info(
         .map_err(|e| YahooFinanceError::RequestFailed(e.to_string()));
     //print!("{:?}", quote);
 
-    let mut dividend_rate_dec = Decimal::ZERO;
-    let mut dividend_yield_dec = Decimal::ZERO;
+    let mut dividend_rate_dec = 0.0;
+    let mut dividend_yield_dec = 0.0;
     let currency = "USD"; // yahoo_finance_api doesn't return currency, so we assume USD or you can maintain mapping
     if let Ok(quote_summary) = quote_summary {
         let dividend_rate = if let Some(summary) = &quote_summary.quote_summary {
@@ -104,8 +97,7 @@ pub async fn get_stock_info(
                 summary_data
                     .summary_detail
                     .as_ref()
-                    .and_then(|d| d.dividend_rate.as_ref())
-                    .and_then(|d| d.to_f64())
+                    .and_then(|d| d.dividend_rate)
             } else {
                 None
             }
@@ -113,24 +105,21 @@ pub async fn get_stock_info(
             None
         };
 
-        dividend_rate_dec =
-            Decimal::from_f64(dividend_rate.unwrap_or(0.00)).unwrap_or(Decimal::ZERO);
+        dividend_rate_dec = dividend_rate.unwrap_or(0.00);
 
         let dividend_yield: Option<f64> = if let Some(summary) = &quote_summary.quote_summary {
             if let Some(summary_data) = summary.result.first() {
                 summary_data
                     .summary_detail
                     .as_ref()
-                    .and_then(|d| d.dividend_yield.as_ref())
-                    .and_then(|d| d.to_f64())
+                    .and_then(|d| d.dividend_yield)
             } else {
                 None
             }
         } else {
             None
         };
-        dividend_yield_dec =
-            Decimal::from_f64(dividend_yield.unwrap_or(0.00)).unwrap_or(Decimal::ZERO);
+        dividend_yield_dec = dividend_yield.unwrap_or(0.00);
     } else {
         println!(
             "Failed to get iyfinace info on ticker = {:?} ",
@@ -139,29 +128,29 @@ pub async fn get_stock_info(
     }
 
     let cur_conv_fact = match currency {
-        "GBP" | "GBp" => Decimal::ONE,
-        "USD" => Decimal::from_f64(0.79).unwrap_or_default(),
-        _ => Decimal::ONE,
+        "GBP" | "GBp" => 1.0,
+        "USD" => 0.79,
+        _ => 1.0,
     };
 
-    let yield_on_cost = if avg_price != Decimal::ZERO {
+    let yield_on_cost = if avg_price != 0.0 {
         dividend_rate_dec / avg_price
     } else {
-        Decimal::ZERO
+        0.0
     };
 
     let annual_dividend = quantity * dividend_rate_dec * cur_conv_fact;
-    let wht = Decimal::from(ticker_info.tax) * annual_dividend / Decimal::from(100);
+    let wht = ticker_info.tax as f64 * annual_dividend / 100.0;
     let annual_income_after_wht = annual_dividend - wht;
 
     let total_investment = if currency == "GBp" {
-        quantity * avg_price * cur_conv_fact * Decimal::from_f64(0.01).unwrap_or_default()
+        quantity * avg_price * cur_conv_fact * 0.01
     } else {
         quantity * avg_price * cur_conv_fact
     };
 
     let cur_investment = if currency == "GBp" {
-        quantity * curr_price * cur_conv_fact * Decimal::from_f64(0.01).unwrap_or_default()
+        quantity * curr_price * cur_conv_fact * 0.01
     } else {
         quantity * curr_price * cur_conv_fact
     };
@@ -173,8 +162,8 @@ pub async fn get_stock_info(
         total_investment,
         annual_dividend_per_share: dividend_rate_dec,
         annual_dividend,
-        dividend_yield: dividend_yield_dec * Decimal::from(100),
-        yield_on_cost: yield_on_cost * Decimal::from(100),
+        dividend_yield: dividend_yield_dec * 100.0,
+        yield_on_cost: yield_on_cost * 100.0,
         annual_wht: wht,
         annual_income_after_wht,
         current_investment_val: cur_investment,

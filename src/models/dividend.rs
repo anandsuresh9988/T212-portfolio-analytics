@@ -16,29 +16,28 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DividendInfo {
     pub symbol: String,
-    pub quantity: Decimal,
-    pub avg_price: Decimal,
-    pub total_investment: Decimal,
-    pub annual_dividend_per_share: Decimal,
-    pub annual_dividend: Decimal,
-    pub dividend_yield: Decimal,
-    pub yield_on_cost: Decimal,
-    pub annual_wht: Decimal, // Withholding Tax
-    pub annual_income_after_wht: Decimal,
-    pub current_investment_val: Decimal,
+    pub quantity: f64,
+    pub avg_price: f64,
+    pub total_investment: f64,
+    pub annual_dividend_per_share: f64,
+    pub annual_dividend: f64,
+    pub dividend_yield: f64,
+    pub yield_on_cost: f64,
+    pub annual_wht: f64, // Withholding Tax
+    pub annual_income_after_wht: f64,
+    pub current_investment_val: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DividendMetrics {
-    pub total_annual_dividend: Decimal,
-    pub total_cost: Decimal,
-    pub yield_on_cost: Decimal,
+    pub total_annual_dividend: f64,
+    pub total_cost: f64,
+    pub yield_on_cost: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -46,4 +45,7 @@ pub struct DividendSummary {
     pub dividend_stocks: DividendMetrics,
     pub entire_portfolio: DividendMetrics,
     pub dividend_details: Vec<DividendInfo>,
+    pub total_annual_dividend: f64,
+    pub total_cost: f64,
+    pub yield_on_cost: f64,
 }
