@@ -16,7 +16,7 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use crate::models::portfolio::Position;
+use crate::{models::portfolio::Position, utils::settings::Config};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -120,7 +120,7 @@ pub struct InstrumentMetadata {
 }
 
 impl Trading212Client {
-    pub fn new(rqst_type: RequestType) -> Result<Self, Trading212Error> {
+    pub fn new(rqst_type: RequestType, config: &Config) -> Result<Self, Trading212Error> {
         let api_key =
             env::var("TRADING212_API_TOKEN").map_err(|_| Trading212Error::MissingApiKey)?;
         let mut base_url = "".to_string();

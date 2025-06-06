@@ -17,5 +17,5 @@
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
 pub mod currency;
-pub mod symbol_mapper;
 pub mod settings;
+pub mod symbol_mapper;

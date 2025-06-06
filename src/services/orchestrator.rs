@@ -18,6 +18,7 @@
 
 use crate::services::trading212::{InstrumentMetadata, RequestType, Trading212Client};
 use crate::utils::currency::CurrencyConverter;
+use crate::utils::settings::Config;
 
 pub struct Orchestrator {
     pub currency_converter: CurrencyConverter,
@@ -25,9 +26,9 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
         // Initialize Trading212 client for metadata
-        let trading212_client = Trading212Client::new(RequestType::InstrumentsMetadata)?;
+        let trading212_client = Trading212Client::new(RequestType::InstrumentsMetadata, config)?;
 
         // Get instrument metadata
         let instrument_metadata = trading212_client.get_instruments_metadata().await?;

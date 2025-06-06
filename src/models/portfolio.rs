@@ -26,8 +26,9 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::dividend::DividendInfo;
-use crate::services::trading212::{RequestType, Trading212Client};
+use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trading212Client};
 use crate::utils::currency::CurrencyConverter;
+use crate::utils::settings::Config;
 use crate::utils::symbol_mapper::extract_symbol;
 use crate::{services::trading212::InstrumentMetadata, utils::currency::Currency};
 
@@ -67,12 +68,13 @@ pub struct Portfolio {
 }
 
 impl Portfolio {
-    pub async fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn init(&mut self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         // Initialize Trading212 client
-        let trading212_client = Trading212Client::new(RequestType::Portfolio).map_err(|e| {
-            eprintln!("Trading 212 API error: client initialization failed: {}", e);
-            e
-        })?;
+        let trading212_client =
+            Trading212Client::new(RequestType::Portfolio, config).map_err(|e| {
+                eprintln!("Trading 212 API error: client initialization failed: {}", e);
+                e
+            })?;
 
         // Fetch open positions
         self.positions = trading212_client.get_open_positions().await.map_err(|e| {
@@ -230,4 +232,108 @@ fn calculate_dividend(p: &mut Position, yield_opt: Option<f64>, rate_opt: Option
 
     p.div_info = Some(div_info);
     //println!("{:?}", p.div_info);
+}
+
+pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Check if we already have a recent export
+    if std::fs::read_dir(".")?
+        .filter_map(|entry| entry.ok())
+        .any(|entry| {
+            entry.path().is_file()
+                && entry.file_name().to_str().map_or(false, |name| {
+                    name.starts_with("export_") && name.ends_with(".csv")
+                })
+        })
+    {
+        return Ok(());
+    }
+
+    println!("No existing export found. Initiating download from Trading212...");
+
+    // Load environment variables
+    dotenv::dotenv().map_err(|e| format!("Failed to load .env file: {}", e))?;
+
+    // Initialize Trading212 client for exports
+    let trading212_client = Trading212Client::new(RequestType::Export, &config)
+        .map_err(|e| format!("Failed to initialize Trading212 client: {}", e))?;
+
+    // Calculate date range for the last year
+    let now = Utc::now();
+    let one_year_ago = now - chrono::Duration::days(365);
+
+    // Create the export request
+    let export_request = ExportRequest {
+        data_included: DataIncluded {
+            include_dividends: true,
+            include_interest: false,
+            include_orders: false,
+            include_transactions: false,
+        },
+        time_from: one_year_ago.to_rfc3339(),
+        time_to: now.to_rfc3339(),
+    };
+
+    println!(
+        "Requesting export for period: {} to {}",
+        one_year_ago.format("%Y-%m-%d"),
+        now.format("%Y-%m-%d")
+    );
+
+    // Request new export
+    let export_response = trading212_client
+        .request_export(&export_request)
+        .await
+        .map_err(|e| format!("Failed to request export: {}", e))?;
+
+    println!("Export initiated with ID: {}", export_response.report_id);
+
+    // Wait and check for export completion
+    for attempt in 1..=30 {
+        println!("Checking export status (attempt {}/30)...", attempt);
+        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+
+        if let Some(export_info) = trading212_client
+            .get_export_status(export_response.report_id)
+            .await
+            .map_err(|e| format!("Failed to check export status: {}", e))?
+        {
+            println!("Export status: {}", export_info.status);
+
+            match export_info.status.as_str() {
+                "Finished" => {
+                    if let Some(download_link) = &export_info.download_link {
+                        println!("Export ready! Downloading...");
+
+                        // Download the export
+                        let export_data = trading212_client
+                            .download_export(download_link)
+                            .await
+                            .map_err(|e| format!("Failed to download export: {}", e))?;
+
+                        // Save the export
+                        let filename = format!("export_{}.csv", export_info.report_id);
+                        std::fs::write(&filename, export_data)
+                            .map_err(|e| format!("Failed to save export file: {}", e))?;
+
+                        println!("Export saved to {}", filename);
+                        return Ok(());
+                    }
+                }
+                "Failed" | "Canceled" => {
+                    return Err(format!(
+                        "Export {} failed or was canceled",
+                        export_response.report_id
+                    )
+                    .into());
+                }
+                _ => {
+                    println!("Export still processing...");
+                }
+            }
+        } else {
+            println!("Export not found in list, waiting...");
+        }
+    }
+
+    Err("Export timed out after 30 attempts".into())
 }

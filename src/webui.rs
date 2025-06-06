@@ -21,7 +21,7 @@ use axum::{
     extract::State,
     http::StatusCode,
     response::{Html, IntoResponse},
-    routing::get,
+    routing::{get, post},
     Router,
 };
 
@@ -40,6 +40,7 @@ use crate::{
         portfolio::{Portfolio, Position},
     },
     services::orchestrator::Orchestrator,
+    utils::settings::Config,
 };
 
 #[derive(Template)]
@@ -67,6 +68,12 @@ pub struct PortfolioTemplate {
     pub total_current_value: String,
     pub total_pl: String,
     pub last_updated: String,
+}
+
+#[derive(Template)]
+#[template(path = "settings.html")]
+pub struct SettingsTemplate {
+    pub settings: Config,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -164,110 +171,6 @@ pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dy
     Ok(records)
 }
 
-pub async fn download_export_if_needed() -> Result<(), Box<dyn std::error::Error>> {
-    // Check if we already have a recent export
-    if std::fs::read_dir(".")?
-        .filter_map(|entry| entry.ok())
-        .any(|entry| {
-            entry.path().is_file()
-                && entry.file_name().to_str().map_or(false, |name| {
-                    name.starts_with("export_") && name.ends_with(".csv")
-                })
-        })
-    {
-        return Ok(());
-    }
-
-    println!("No existing export found. Initiating download from Trading212...");
-
-    // Load environment variables
-    dotenv::dotenv().map_err(|e| format!("Failed to load .env file: {}", e))?;
-
-    // Initialize Trading212 client for exports
-    let trading212_client = Trading212Client::new(RequestType::Export)
-        .map_err(|e| format!("Failed to initialize Trading212 client: {}", e))?;
-
-    // Calculate date range for the last year
-    let now = Utc::now();
-    let one_year_ago = now - chrono::Duration::days(365);
-
-    // Create the export request
-    let export_request = ExportRequest {
-        data_included: DataIncluded {
-            include_dividends: true,
-            include_interest: false,
-            include_orders: false,
-            include_transactions: false,
-        },
-        time_from: one_year_ago.to_rfc3339(),
-        time_to: now.to_rfc3339(),
-    };
-
-    println!(
-        "Requesting export for period: {} to {}",
-        one_year_ago.format("%Y-%m-%d"),
-        now.format("%Y-%m-%d")
-    );
-
-    // Request new export
-    let export_response = trading212_client
-        .request_export(&export_request)
-        .await
-        .map_err(|e| format!("Failed to request export: {}", e))?;
-
-    println!("Export initiated with ID: {}", export_response.report_id);
-
-    // Wait and check for export completion
-    for attempt in 1..=30 {
-        println!("Checking export status (attempt {}/30)...", attempt);
-        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-
-        if let Some(export_info) = trading212_client
-            .get_export_status(export_response.report_id)
-            .await
-            .map_err(|e| format!("Failed to check export status: {}", e))?
-        {
-            println!("Export status: {}", export_info.status);
-
-            match export_info.status.as_str() {
-                "Finished" => {
-                    if let Some(download_link) = &export_info.download_link {
-                        println!("Export ready! Downloading...");
-
-                        // Download the export
-                        let export_data = trading212_client
-                            .download_export(download_link)
-                            .await
-                            .map_err(|e| format!("Failed to download export: {}", e))?;
-
-                        // Save the export
-                        let filename = format!("export_{}.csv", export_info.report_id);
-                        std::fs::write(&filename, export_data)
-                            .map_err(|e| format!("Failed to save export file: {}", e))?;
-
-                        println!("Export saved to {}", filename);
-                        return Ok(());
-                    }
-                }
-                "Failed" | "Canceled" => {
-                    return Err(format!(
-                        "Export {} failed or was canceled",
-                        export_response.report_id
-                    )
-                    .into());
-                }
-                _ => {
-                    println!("Export still processing...");
-                }
-            }
-        } else {
-            println!("Export not found in list, waiting...");
-        }
-    }
-
-    Err("Export timed out after 30 attempts".into())
-}
-
 // Handler for the dividends page
 pub async fn show_dividends(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> impl IntoResponse {
     let portfolio = portfolio.lock().unwrap();
@@ -306,23 +209,18 @@ pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
         .iter()
         .map(|p| p.average_price * p.quantity)
         .sum();
-    let total_current_value: f64 = portfolio
-        .positions
-        .iter()
-        .map(|p| p.value)
-        .sum();
-    let total_pl: f64 = portfolio
-        .positions
-        .iter()
-        .map(|p| p.ppl)
-        .sum();
+    let total_current_value: f64 = portfolio.positions.iter().map(|p| p.value).sum();
+    let total_pl: f64 = portfolio.positions.iter().map(|p| p.ppl).sum();
 
     let template = PortfolioTemplate {
         positions: positions.to_vec(),
         total_invested: format!("{:.2}", total_invested),
         total_current_value: format!("{:.2}", total_current_value),
         total_pl: format!("{:.2}", total_pl),
-        last_updated: portfolio.last_updated.format("%Y-%m-%d %H:%M:%S").to_string(),
+        last_updated: portfolio
+            .last_updated
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string(),
     };
 
     match template.render() {
@@ -337,15 +235,6 @@ pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
 
 // Handler for the payout page
 pub async fn show_payouts() -> impl IntoResponse {
-    // Try to download export if needed
-    if let Err(e) = download_export_if_needed().await {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to ensure export data: {}", e),
-        )
-            .into_response();
-    }
-
     // Get the latest export file
     let records = match get_latest_dividend_records().await {
         Ok(records) => records,
@@ -416,7 +305,78 @@ pub async fn show_payouts() -> impl IntoResponse {
     }
 }
 
-pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error::Error>> {
+// Handler for the settings page (GET)
+pub async fn show_settings() -> impl IntoResponse {
+    let settings = Config::load_config().unwrap_or_else(|_| Config::default());
+
+    let template = SettingsTemplate {
+        settings: settings.clone(),
+    };
+
+    match template.render() {
+        Ok(html) => Html(html).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template rendering error: {}", e),
+        )
+            .into_response(),
+    }
+}
+
+// Handler for the settings page (POST)
+#[derive(Deserialize)]
+pub struct UpdateSettingsForm {
+    api_key: Option<String>,
+    currency: String,
+    portfolio_update_interval_secs: u64,
+}
+
+pub async fn save_settings(form: axum::extract::Form<UpdateSettingsForm>) -> impl IntoResponse {
+    let mut settings = Config::load_config().unwrap_or_else(|_| Config::default());
+
+    settings.api_key = form.api_key.clone();
+    settings.currency = form
+        .currency
+        .parse()
+        .unwrap_or(crate::utils::currency::Currency::UnSupported);
+    settings.portfolio_update_interval = Duration::from_secs(form.portfolio_update_interval_secs);
+
+    match settings.save_config() {
+        Ok(_) => axum::Json(serde_json::json!({
+            "status": "success",
+            "message": "Settings saved successfully!"
+        }))
+        .into_response(),
+        Err(e) => axum::Json(serde_json::json!({
+            "status": "error",
+            "message": format!("Error saving settings: {}", e)
+        }))
+        .into_response(),
+    }
+}
+
+// Handler to reset settings to default (POST)
+pub async fn reset_settings() -> impl IntoResponse {
+    let default_settings = crate::utils::settings::Config::default();
+
+    match default_settings.save_config() {
+        Ok(_) => axum::Json(serde_json::json!({
+            "status": "success",
+            "message": "Settings reset successfully!"
+        }))
+        .into_response(),
+        Err(e) => axum::Json(serde_json::json!({
+            "status": "error",
+            "message": format!("Error resetting settings: {}", e)
+        }))
+        .into_response(),
+    }
+}
+
+pub async fn start_server(
+    portfolio: Portfolio,
+    config: Config,
+) -> Result<(), Box<dyn std::error::Error>> {
     let shared_portfolio = Arc::new(Mutex::new(portfolio));
 
     let app = Router::new()
@@ -424,6 +384,8 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
         .route("/portfolio", get(show_portfolio))
         .route("/dividends", get(show_dividends))
         .route("/payout", get(show_payouts))
+        .route("/settings", get(show_settings).post(save_settings))
+        .route("/settings/reset", post(reset_settings))
         .with_state(shared_portfolio.clone());
 
     // Spawn a background async task to update the portfolio periodically
@@ -433,13 +395,12 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
             sleep(Duration::from_secs(60)).await;
             // Create a new portfolio instance and update it
             let mut new_portfolio = Portfolio::default();
-            if let Err(e) = new_portfolio.init().await {
+            if let Err(e) = new_portfolio.init(&config).await {
                 eprintln!("Failed to initialize portfolio: {}", e);
             }
 
-
             // Process the new portfolio data
-            let orchestrator = Orchestrator::new().await.unwrap();
+            let orchestrator = Orchestrator::new(&config).await.unwrap();
             if let Err(e) = new_portfolio.process(
                 "cache.json",
                 orchestrator.currency_converter,
@@ -447,7 +408,6 @@ pub async fn start_server(portfolio: Portfolio) -> Result<(), Box<dyn std::error
             ) {
                 eprintln!("Failed to process portfolio: {}", e);
             }
-
 
             // Take the lock only briefly to swap in the new data
             {

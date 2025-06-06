@@ -16,8 +16,8 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use std::str::FromStr;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

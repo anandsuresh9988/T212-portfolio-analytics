@@ -16,12 +16,14 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
+use t212_portfolio_analytics::models::portfolio::download_export_if_needed;
 use t212_portfolio_analytics::models::portfolio::Portfolio;
 use t212_portfolio_analytics::services::orchestrator;
 use t212_portfolio_analytics::services::orchestrator::Orchestrator;
 use t212_portfolio_analytics::services::trading212::RequestType;
 use t212_portfolio_analytics::services::trading212::Trading212Client;
 use t212_portfolio_analytics::utils::currency::{Currency, CurrencyConverter};
+use t212_portfolio_analytics::utils::settings::Config;
 use t212_portfolio_analytics::webui;
 
 #[tokio::main]
@@ -30,9 +32,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut portfolio: Portfolio = Portfolio::default();
     let cache_file = "output.json";
 
-    let orchestrator: Orchestrator = Orchestrator::new().await?;
-    portfolio.init().await?;
+    let config = Config::load_config()?;
+    let orchestrator: Orchestrator = Orchestrator::new(&config).await?;
+    portfolio.init(&config).await?;
     //println!("Instrument metadata {:?}", orchestrator.instrument_metadata);
+
+    // Try to download export if needed
+    download_export_if_needed(&config).await?;
 
     // Process portfolio with cache file and currency converter
     portfolio.process(
@@ -42,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // Start the web server
-    webui::start_server(portfolio).await?;
+    webui::start_server(portfolio, config).await?;
 
     Ok(())
 }

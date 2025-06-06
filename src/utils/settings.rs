@@ -16,23 +16,27 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use std::{fs::File, io::{BufReader, BufWriter}, time::Duration};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+    time::Duration,
+};
 
 use serde::{Deserialize, Serialize};
 
 use super::currency::Currency;
 
-const DEFAULT_PORTFOLIO_UPDATE_TIME_S: u64 = 60*60;
+const DEFAULT_PORTFOLIO_UPDATE_TIME_S: u64 = 60 * 60;
 const CONFIG_FILE: &str = "config.json";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Config {
     #[serde(default)]
-    api_key: Option<String>,
+    pub api_key: Option<String>,
     #[serde(default)]
-    currency: Currency,
-    #[serde(default = "default_timeout" )]
-    portfolio_update_interval: Duration,
+    pub currency: Currency,
+    #[serde(default = "default_timeout")]
+    pub portfolio_update_interval: Duration,
 }
 
 fn default_timeout() -> Duration {
@@ -48,7 +52,7 @@ impl Config {
         Ok(())
     }
 
-    pub fn load_config() -> Result<Self, Box<dyn std::error::Error>>{
+    pub fn load_config() -> Result<Self, Box<dyn std::error::Error>> {
         let file = File::open(CONFIG_FILE)?;
         let reader = BufReader::new(file);
         let config = serde_json::from_reader(reader)?;
