@@ -16,7 +16,10 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use crate::{models::portfolio::Position, utils::settings::Config};
+use crate::{
+    models::portfolio::Position,
+    utils::settings::{Config, Mode},
+};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -101,7 +104,7 @@ pub enum RequestType {
     InstrumentsMetadata,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct InstrumentMetadata {
     #[serde(rename = "addedOn")]
     pub added_on: String,
@@ -178,6 +181,7 @@ impl Trading212Client {
     }
 
     pub async fn get_open_positions(&self) -> Result<Vec<Position>, Trading212Error> {
+        // Live mode - make API request
         let response = self
             .client
             .get(&self.base_url)
@@ -197,7 +201,6 @@ impl Trading212Client {
             .json()
             .await
             .map_err(|e| Trading212Error::ParseError(e.to_string()))?;
-        //println!("pso ={:?}", positions);
 
         let positions = positions
             .into_iter()
@@ -319,6 +322,7 @@ impl Trading212Client {
     pub async fn get_instruments_metadata(
         &self,
     ) -> Result<Vec<InstrumentMetadata>, Trading212Error> {
+        // Live mode - make API request
         println!("Sending export request to: {}", self.base_url);
         let response = self
             .client
@@ -340,9 +344,12 @@ impl Trading212Client {
             )));
         }
 
-        response
+        // Parse the response
+        let metadata: Vec<InstrumentMetadata> = response
             .json()
             .await
-            .map_err(|e| Trading212Error::ParseError(e.to_string()))
+            .map_err(|e| Trading212Error::ParseError(e.to_string()))?;
+
+        Ok(metadata)
     }
 }

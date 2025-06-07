@@ -25,7 +25,7 @@ use axum::{
     Router,
 };
 
-use chrono::{NaiveDate, NaiveDateTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -33,14 +33,13 @@ use std::sync::{Arc, Mutex};
 use tokio::task;
 use tokio::time::{sleep, Duration};
 
-use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trading212Client};
 use crate::{
     models::{
         dividend::DividendInfo,
         portfolio::{Portfolio, Position},
     },
     services::orchestrator::Orchestrator,
-    utils::settings::Config,
+    utils::settings::{Config, Mode},
 };
 
 #[derive(Template)]
@@ -48,6 +47,7 @@ use crate::{
 pub struct DividendsTemplate {
     pub dividends: Vec<DividendInfo>,
     pub div_per_year: String,
+    pub settings: Config,
 }
 
 #[derive(Template)]
@@ -58,6 +58,7 @@ pub struct PayoutTemplate {
     pub total_wht: String,
     pub ticker_summary: Vec<TickerSummary>,
     pub monthly_div_summary: Vec<(String, f64)>,
+    pub settings: Config,
 }
 
 #[derive(Template)]
@@ -68,6 +69,7 @@ pub struct PortfolioTemplate {
     pub total_current_value: String,
     pub total_pl: String,
     pub last_updated: String,
+    pub settings: Config,
 }
 
 #[derive(Template)]
@@ -172,9 +174,11 @@ pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dy
 }
 
 // Handler for the dividends page
-pub async fn show_dividends(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> impl IntoResponse {
+pub async fn show_dividends(
+    State((portfolio, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
+) -> impl IntoResponse {
     let portfolio = portfolio.lock().unwrap();
-    let dividends: Vec<DividendInfo> = portfolio
+    let mut dividends: Vec<DividendInfo> = portfolio
         .positions
         .iter()
         .filter_map(|pos| pos.div_info.clone())
@@ -185,9 +189,15 @@ pub async fn show_dividends(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
         .map(|item| item.annual_income_after_wht)
         .sum();
 
+    dividends.sort_by(|a, b| {
+        b.annual_income_after_wht
+            .partial_cmp(&a.annual_income_after_wht)
+            .unwrap()
+    });
     let template = DividendsTemplate {
         dividends,
         div_per_year: format!("{:.2}", div_per_year),
+        settings: config.as_ref().clone(),
     };
 
     match template.render() {
@@ -201,7 +211,9 @@ pub async fn show_dividends(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
 }
 
 // Handler for the dividends page
-pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> impl IntoResponse {
+pub async fn show_portfolio(
+    State((portfolio, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
+) -> impl IntoResponse {
     let portfolio = portfolio.lock().unwrap();
     let positions = &portfolio.positions;
     let total_invested: f64 = portfolio
@@ -221,6 +233,7 @@ pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
             .last_updated
             .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
+        settings: config.as_ref().clone(),
     };
 
     match template.render() {
@@ -234,7 +247,9 @@ pub async fn show_portfolio(State(portfolio): State<Arc<Mutex<Portfolio>>>) -> i
 }
 
 // Handler for the payout page
-pub async fn show_payouts() -> impl IntoResponse {
+pub async fn show_payouts(
+    State((_, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
+) -> impl IntoResponse {
     // Get the latest export file
     let records = match get_latest_dividend_records().await {
         Ok(records) => records,
@@ -248,26 +263,31 @@ pub async fn show_payouts() -> impl IntoResponse {
     };
 
     // Calculate totals and summaries
-    let mut total_dividends = 0.0;
-    let mut total_wht = 0.0;
-    let mut ticker_totals: HashMap<String, (f64, f64)> = HashMap::new();
+    let total_dividends: f64 = records
+        .iter()
+        .filter_map(|r| r.total.parse::<f64>().ok())
+        .sum();
+    let total_wht: f64 = records
+        .iter()
+        .filter_map(|r| r.withholding_tax.parse::<f64>().ok())
+        .sum();
 
+    // Group by ticker
+    let mut ticker_map: HashMap<String, (f64, f64)> = HashMap::new();
     for record in &records {
-        let total: f64 = record.total.parse().unwrap_or(0.0);
-        let wht: f64 = record.withholding_tax.parse().unwrap_or(0.0);
-
-        total_dividends += total;
-        total_wht += wht;
-
-        let entry = ticker_totals
-            .entry(record.ticker.clone())
-            .or_insert((0.0, 0.0));
-        entry.0 += total;
-        entry.1 += wht;
+        if let (Ok(total), Ok(wht)) = (
+            record.total.parse::<f64>(),
+            record.withholding_tax.parse::<f64>(),
+        ) {
+            let entry = ticker_map
+                .entry(record.ticker.clone())
+                .or_insert((0.0, 0.0));
+            entry.0 += total;
+            entry.1 += wht;
+        }
     }
 
-    // Create ticker summary
-    let mut ticker_summary: Vec<TickerSummary> = ticker_totals
+    let mut ticker_summary: Vec<TickerSummary> = ticker_map
         .into_iter()
         .map(|(ticker, (total, wht))| TickerSummary {
             ticker,
@@ -275,24 +295,21 @@ pub async fn show_payouts() -> impl IntoResponse {
             wht: format!("{:.2}", wht),
         })
         .collect();
-
-    // Sort ticker summary by total amount descending
     ticker_summary.sort_by(|a, b| {
         b.total
-            .parse::<f64>()
-            .unwrap_or(0.0)
-            .partial_cmp(&a.total.parse::<f64>().unwrap_or(0.0))
+            .partial_cmp(&a.total)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    let monthly_dividends = calculate_monthly_dividends(&records);
+    let monthly_div_summary = calculate_monthly_dividends(&records);
 
     let template = PayoutTemplate {
         records,
         total_dividends: format!("{:.2}", total_dividends),
         total_wht: format!("{:.2}", total_wht),
         ticker_summary,
-        monthly_div_summary: monthly_dividends,
+        monthly_div_summary,
+        settings: config.as_ref().clone(),
     };
 
     match template.render() {
@@ -306,11 +323,11 @@ pub async fn show_payouts() -> impl IntoResponse {
 }
 
 // Handler for the settings page (GET)
-pub async fn show_settings() -> impl IntoResponse {
-    let settings = Config::load_config().unwrap_or_else(|_| Config::default());
-
+pub async fn show_settings(
+    State((_, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
+) -> impl IntoResponse {
     let template = SettingsTemplate {
-        settings: settings.clone(),
+        settings: config.as_ref().clone(),
     };
 
     match template.render() {
@@ -324,40 +341,64 @@ pub async fn show_settings() -> impl IntoResponse {
 }
 
 // Handler for the settings page (POST)
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct UpdateSettingsForm {
     api_key: Option<String>,
     currency: String,
+    mode: String,
     portfolio_update_interval_secs: u64,
 }
 
 pub async fn save_settings(form: axum::extract::Form<UpdateSettingsForm>) -> impl IntoResponse {
-    let mut settings = Config::load_config().unwrap_or_else(|_| Config::default());
+    let mut config = match Config::load_config() {
+        Ok(config) => config,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                serde_json::json!({
+                    "status": "error",
+                    "message": format!("Failed to load config: {}", e)
+                })
+                .to_string(),
+            )
+                .into_response()
+        }
+    };
 
-    settings.api_key = form.api_key.clone();
-    settings.currency = form
-        .currency
-        .parse()
-        .unwrap_or(crate::utils::currency::Currency::UnSupported);
-    settings.portfolio_update_interval = Duration::from_secs(form.portfolio_update_interval_secs);
+    config.api_key = form.api_key.clone();
+    config.currency = form.currency.parse().unwrap_or_default();
+    config.mode = match form.mode.as_str() {
+        "Live" => Mode::Live,
+        "Demo" => Mode::Demo,
+        _ => Mode::Demo, // Default to Demo if invalid value
+    };
+    config.portfolio_update_interval = Duration::from_secs(form.portfolio_update_interval_secs);
 
-    match settings.save_config() {
-        Ok(_) => axum::Json(serde_json::json!({
-            "status": "success",
-            "message": "Settings saved successfully!"
-        }))
-        .into_response(),
-        Err(e) => axum::Json(serde_json::json!({
-            "status": "error",
-            "message": format!("Error saving settings: {}", e)
-        }))
-        .into_response(),
+    match config.save_config() {
+        Ok(_) => (
+            StatusCode::OK,
+            serde_json::json!({
+                "status": "success",
+                "message": "Settings saved successfully"
+            })
+            .to_string(),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            serde_json::json!({
+                "status": "error",
+                "message": format!("Failed to save config: {}", e)
+            })
+            .to_string(),
+        )
+            .into_response(),
     }
 }
 
 // Handler to reset settings to default (POST)
 pub async fn reset_settings() -> impl IntoResponse {
-    let default_settings = crate::utils::settings::Config::default();
+    let mut default_settings = crate::utils::settings::Config::default();
 
     match default_settings.save_config() {
         Ok(_) => axum::Json(serde_json::json!({
@@ -377,32 +418,35 @@ pub async fn start_server(
     portfolio: Portfolio,
     config: Config,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let shared_portfolio = Arc::new(Mutex::new(portfolio));
+    let portfolio = Arc::new(Mutex::new(portfolio));
+    let config = Arc::new(config);
 
     let app = Router::new()
-        .route("/", get(show_portfolio))
+        .route("/", get(|| async { "Welcome to T212 Portfolio Analytics" }))
         .route("/portfolio", get(show_portfolio))
         .route("/dividends", get(show_dividends))
         .route("/payout", get(show_payouts))
-        .route("/settings", get(show_settings).post(save_settings))
+        .route("/settings", get(show_settings))
+        .route("/settings", post(save_settings))
         .route("/settings/reset", post(reset_settings))
-        .with_state(shared_portfolio.clone());
+        .with_state((portfolio.clone(), config.clone()));
 
     // Spawn a background async task to update the portfolio periodically
-    let portfolio_for_task = shared_portfolio.clone();
+    let portfolio_for_task = portfolio.clone();
+    let config_for_task = config.clone();
     task::spawn(async move {
         loop {
             sleep(Duration::from_secs(60)).await;
             // Create a new portfolio instance and update it
             let mut new_portfolio = Portfolio::default();
-            if let Err(e) = new_portfolio.init(&config).await {
+            if let Err(e) = new_portfolio.init(&config_for_task).await {
                 eprintln!("Failed to initialize portfolio: {}", e);
             }
 
             // Process the new portfolio data
-            let orchestrator = Orchestrator::new(&config).await.unwrap();
+            let orchestrator = Orchestrator::new(&config_for_task).await.unwrap();
             if let Err(e) = new_portfolio.process(
-                "cache.json",
+                &config_for_task,
                 orchestrator.currency_converter,
                 orchestrator.instrument_metadata,
             ) {
@@ -417,15 +461,16 @@ pub async fn start_server(
                 println!("Portfolio update count: {}", shared.update_count);
             }
 
-            // Wait 15 minutes before next update
-            sleep(Duration::from_secs(60)).await;
+            // Wait for the configured update interval before next update
+            sleep(config_for_task.portfolio_update_interval).await;
         }
     });
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3001));
-
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    println!("Server running on http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await?;
+
     Ok(())
 }

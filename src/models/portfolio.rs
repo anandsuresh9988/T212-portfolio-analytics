@@ -28,7 +28,7 @@ use thiserror::Error;
 use super::dividend::DividendInfo;
 use crate::services::trading212::{DataIncluded, ExportRequest, RequestType, Trading212Client};
 use crate::utils::currency::CurrencyConverter;
-use crate::utils::settings::Config;
+use crate::utils::settings::{Config, Mode};
 use crate::utils::symbol_mapper::extract_symbol;
 use crate::{services::trading212::InstrumentMetadata, utils::currency::Currency};
 
@@ -69,7 +69,21 @@ pub struct Portfolio {
 
 impl Portfolio {
     pub async fn init(&mut self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-        // Initialize Trading212 client
+        // Check if we're in Demo mode
+        if config.mode == Mode::Demo {
+            // Try to load from saved file
+            if let Ok(file) = std::fs::File::open("./demo_data/demo_positions.json") {
+                let reader = std::io::BufReader::new(file);
+                if let Ok(positions) = serde_json::from_reader(reader) {
+                    println!("Loaded positions from demo_positions.json");
+                    self.positions = positions;
+                    return Ok(());
+                }
+            }
+            return Err("No demo positions data available".into());
+        }
+
+        // Live mode - proceed with Trading212 API
         let trading212_client =
             Trading212Client::new(RequestType::Portfolio, config).map_err(|e| {
                 eprintln!("Trading 212 API error: client initialization failed: {}", e);
@@ -82,14 +96,22 @@ impl Portfolio {
             e
         })?;
 
-        //println!("{:?}", self.positions);
+        // Save the data for future use in Demo mode
+        if let Ok(file) = std::fs::File::create("demo_positions.json") {
+            let writer = std::io::BufWriter::new(file);
+            if let Err(e) = serde_json::to_writer_pretty(writer, &self.positions) {
+                eprintln!("Failed to save positions data: {}", e);
+            } else {
+                println!("Saved positions data to demo_positions.json");
+            }
+        }
 
         Ok(())
     }
 
     pub fn process(
         &mut self,
-        cache_file: &str,
+        config: &Config,
         converter: CurrencyConverter,
         instrument_metadata: Vec<InstrumentMetadata>,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -121,6 +143,10 @@ impl Portfolio {
 
         println!("{:?}", yfinance_tickers);
 
+        let mut cache_file = "output.json";
+        if config.mode == Mode::Demo {
+            cache_file = "demo_data/output.json"
+        }
         let json_str = if Path::new(cache_file).exists() {
             // ✅ Read from cache
             println!("Reading from cache...");

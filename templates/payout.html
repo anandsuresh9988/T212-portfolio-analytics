@@ -63,6 +63,9 @@
                         <a class="nav-link" href="/settings">Settings</a>
                     </li>
                 </ul>
+                <span class="navbar-text ms-auto">
+                    Mode: <span class="badge {% if settings.mode == Mode::Live %}bg-danger{% else %}bg-warning{% endif %}">{{ settings.mode }}</span>
+                </span>
             </div>
         </div>
     </nav>

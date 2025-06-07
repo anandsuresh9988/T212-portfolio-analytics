@@ -17,8 +17,10 @@
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
 use std::{
+    default,
     fs::File,
     io::{BufReader, BufWriter},
+    path::Path,
     time::Duration,
 };
 
@@ -29,8 +31,31 @@ use super::currency::Currency;
 const DEFAULT_PORTFOLIO_UPDATE_TIME_S: u64 = 60 * 60;
 const CONFIG_FILE: &str = "config.json";
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum Mode {
+    Live,
+    Demo,
+}
+
+impl std::fmt::Display for Mode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Mode::Live => write!(f, "Live"),
+            Mode::Demo => write!(f, "Demo"),
+        }
+    }
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Demo
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Config {
+    #[serde(default)]
+    pub mode: Mode,
     #[serde(default)]
     pub api_key: Option<String>,
     #[serde(default)]
@@ -53,6 +78,10 @@ impl Config {
     }
 
     pub fn load_config() -> Result<Self, Box<dyn std::error::Error>> {
+        if !Path::new(CONFIG_FILE).exists() {
+            let config = Config::default();
+            let _ = config.save_config();
+        }
         let file = File::open(CONFIG_FILE)?;
         let reader = BufReader::new(file);
         let config = serde_json::from_reader(reader)?;

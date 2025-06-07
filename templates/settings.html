@@ -33,6 +33,9 @@
                         <a class="nav-link active" href="/settings">Settings</a>
                     </li>
                 </ul>
+                <span class="navbar-text ms-auto">
+                    Mode: <span class="badge {% if settings.mode == Mode::Live %}bg-danger{% else %}bg-warning{% endif %}">{{ settings.mode }}</span>
+                </span>
             </div>
         </div>
     </nav>
@@ -44,6 +47,15 @@
             <div class="col-md-6 mx-auto">
                 <form action="/settings" method="post">
                     <div class="form-group">
+                        <label for="mode">Trading Mode:</label>
+                        <select class="form-control" id="mode" name="mode">
+                            <option value="Demo" {% if settings.mode == Mode::Demo %}selected{% endif %}>Demo</option>
+                            <option value="Live" {% if settings.mode == Mode::Live %}selected{% endif %}>Live</option>
+                        </select>
+                        <small class="form-text text-muted">Select whether to use Demo or Live trading mode.</small>
+                    </div>
+
+                    <div class="form-group" id="apiKeyGroup">
                         <label for="api_key">Trading212 API Token:</label>
                         <input type="text" class="form-control" id="api_key" name="api_key" value="{{ settings.api_key.as_deref().unwrap_or("") }}">
                         <small class="form-text text-muted">Enter your Trading212 API token. Leaving this blank will use the environment variable.</small>
@@ -72,16 +84,27 @@
     </div>
 
     <script>
+        function updateApiKeyField() {
+            const mode = document.getElementById('mode').value;
+            const apiKeyGroup = document.getElementById('apiKeyGroup');
+            const apiKeyInput = document.getElementById('api_key');
+            if (mode === 'Demo') {
+                apiKeyGroup.style.display = 'none';
+                apiKeyInput.disabled = true;
+            } else {
+                apiKeyGroup.style.display = '';
+                apiKeyInput.disabled = false;
+            }
+        }
         document.addEventListener('DOMContentLoaded', function () {
+            updateApiKeyField();
+            document.getElementById('mode').addEventListener('change', updateApiKeyField);
             const form = document.querySelector('form');
             form.addEventListener('submit', async function (event) {
                 event.preventDefault();
-
                 const formData = new FormData(form);
-
                 // Convert FormData to URLSearchParams to send as application/x-www-form-urlencoded
                 const urlSearchParams = new URLSearchParams(formData);
-
                 const response = await fetch('/settings', {
                     method: 'POST',
                     headers: {
@@ -89,29 +112,32 @@
                     },
                     body: urlSearchParams,
                 });
-
                 const result = await response.json();
-
                 if (result.status === 'success') {
+                    // Update the UI to reflect the new mode
+                    const newMode = document.getElementById('mode').value;
+                    updateApiKeyField();
+                    // Optionally update the mode badge in the navbar
+                    const badge = document.querySelector('.navbar-text .badge');
+                    if (badge) {
+                        badge.textContent = newMode;
+                        badge.className = 'badge ' + (newMode === 'Live' ? 'bg-danger' : 'bg-warning');
+                    }
                     alert('Settings saved successfully!');
                 } else {
                     alert('Error saving settings: ' + result.message);
                 }
             });
         });
-
         // Add event listener for the reset button
         document.getElementById('resetSettingsBtn').addEventListener('click', async function() {
             if (confirm('Are you sure you want to reset settings to default?')) {
                 const response = await fetch('/settings/reset', {
                     method: 'POST',
                 });
-
                 const result = await response.json();
-
                 if (result.status === 'success') {
                     alert('Settings reset to default!');
-                    // Optionally reload the page to show default settings
                     window.location.reload();
                 } else {
                     alert('Error resetting settings: ' + result.message);

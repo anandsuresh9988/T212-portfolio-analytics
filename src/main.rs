@@ -30,7 +30,6 @@ use t212_portfolio_analytics::webui;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an empty/default portfolio
     let mut portfolio: Portfolio = Portfolio::default();
-    let cache_file = "output.json";
 
     let config = Config::load_config()?;
     let orchestrator: Orchestrator = Orchestrator::new(&config).await?;
@@ -42,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Process portfolio with cache file and currency converter
     portfolio.process(
-        cache_file,
+        &config,
         orchestrator.currency_converter,
         orchestrator.instrument_metadata,
     )?;
