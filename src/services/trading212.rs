@@ -44,6 +44,7 @@ struct Trading212Position {
     averagePrice: f64,
     currentPrice: f64,
     ppl: f64,
+    fxPpl: Option<f64>,
     currency: Option<String>,
 }
 
@@ -213,6 +214,7 @@ impl Trading212Client {
                 currency: p.currency.unwrap_or_else(|| "GBP".to_string()),
                 value: p.quantity * p.currentPrice,
                 ppl: p.ppl,
+                fx_ppl: p.fxPpl.unwrap_or_else(|| 0.0),
                 ppl_percent: if p.averagePrice != 0.0 {
                     (p.currentPrice / p.averagePrice - 1.0) * 100.0
                 } else {
