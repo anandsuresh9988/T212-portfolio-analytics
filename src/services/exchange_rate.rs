@@ -41,6 +41,7 @@ struct ExchangeRateResponse {
     rates: HashMap<String, f64>,
 }
 
+#[derive(Debug)]
 struct CachedRates {
     base: String,
     rates: HashMap<String, f64>,
@@ -119,6 +120,8 @@ pub async fn get_conversion_rate(
             rates: data.rates,
             timestamp: Utc::now(),
         });
+
+        println!("rates: {:?}", cache);
     }
 
     Ok(rate)

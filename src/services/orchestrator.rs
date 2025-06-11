@@ -66,7 +66,7 @@ impl Orchestrator {
 
         // Create currency converter with fixed rates
         // These rates should be updated periodically in a real application
-        let currency_converter = CurrencyConverter::new(1.25, 1.15); // GBP to USD and EUR rates
+        let currency_converter = CurrencyConverter::new().await?;
 
         Ok(Self {
             currency_converter,

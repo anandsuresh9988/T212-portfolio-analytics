@@ -19,17 +19,26 @@
 use std::{
     default,
     fs::File,
-    io::{BufReader, BufWriter},
+    io::{BufReader, BufWriter, Error as IoError},
     path::Path,
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
+use serde_json::Error as SerdeError;
 
 use super::currency::Currency;
 
 const DEFAULT_PORTFOLIO_UPDATE_TIME_S: u64 = 60 * 60;
 const CONFIG_FILE: &str = "config.json";
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("IO error: {0}")]
+    Io(#[from] IoError),
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] SerdeError),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Mode {
@@ -69,15 +78,14 @@ fn default_timeout() -> Duration {
 }
 
 impl Config {
-    pub fn save_config(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_config(&self) -> Result<(), ConfigError> {
         let file = File::create(CONFIG_FILE)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, self)?;
-
         Ok(())
     }
 
-    pub fn load_config() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_config() -> Result<Self, ConfigError> {
         if !Path::new(CONFIG_FILE).exists() {
             let config = Config::default();
             let _ = config.save_config();

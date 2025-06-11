@@ -339,6 +339,7 @@ static STOCKS_LUT: Lazy<HashMap<String, StockInfo>> = Lazy::new(|| {
             tax: 15,
         },
     );
+
     lut.insert(
         "TEST".into(),
         StockInfo {

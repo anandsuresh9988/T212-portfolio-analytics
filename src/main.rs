@@ -40,11 +40,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     download_export_if_needed(&config).await?;
 
     // Process portfolio with cache file and currency converter
-    portfolio.process(
-        &config,
-        orchestrator.currency_converter,
-        orchestrator.instrument_metadata,
-    )?;
+    portfolio
+        .process(
+            &config,
+            orchestrator.currency_converter,
+            orchestrator.instrument_metadata,
+        )
+        .await?;
 
     // Start the web server
     webui::start_server(portfolio, config).await?;

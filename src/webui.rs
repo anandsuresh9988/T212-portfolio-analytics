@@ -18,6 +18,7 @@
 
 use askama::Template;
 use axum::{
+    extract::Form,
     extract::State,
     http::StatusCode,
     response::{Html, IntoResponse},
@@ -30,6 +31,8 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
+use tokio::sync::Mutex as TokioMutex;
 use tokio::task;
 use tokio::time::{sleep, Duration};
 
@@ -173,11 +176,17 @@ pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dy
     Ok(records)
 }
 
+#[derive(Clone)]
+pub struct AppState {
+    pub portfolio: Arc<TokioMutex<Portfolio>>,
+    pub config: Arc<TokioMutex<Config>>,
+    pub tx: mpsc::Sender<()>,
+}
+
 // Handler for the dividends page
-pub async fn show_dividends(
-    State((portfolio, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
-) -> impl IntoResponse {
-    let portfolio = portfolio.lock().unwrap();
+pub async fn show_dividends(State(state): State<AppState>) -> impl IntoResponse {
+    let portfolio = state.portfolio.lock().await;
+    let config = state.config.lock().await;
     let mut dividends: Vec<DividendInfo> = portfolio
         .positions
         .iter()
@@ -197,7 +206,7 @@ pub async fn show_dividends(
     let template = DividendsTemplate {
         dividends,
         div_per_year: format!("{:.2}", div_per_year),
-        settings: config.as_ref().clone(),
+        settings: config.clone(),
     };
 
     match template.render() {
@@ -211,10 +220,9 @@ pub async fn show_dividends(
 }
 
 // Handler for the dividends page
-pub async fn show_portfolio(
-    State((portfolio, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
-) -> impl IntoResponse {
-    let portfolio = portfolio.lock().unwrap();
+pub async fn show_portfolio(State(state): State<AppState>) -> impl IntoResponse {
+    let portfolio = state.portfolio.lock().await;
+    let config = state.config.lock().await;
     let positions = &portfolio.positions;
     let total_invested: f64 = portfolio
         .positions
@@ -233,7 +241,7 @@ pub async fn show_portfolio(
             .last_updated
             .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
-        settings: config.as_ref().clone(),
+        settings: config.clone(),
     };
 
     match template.render() {
@@ -247,9 +255,8 @@ pub async fn show_portfolio(
 }
 
 // Handler for the payout page
-pub async fn show_payouts(
-    State((_, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
-) -> impl IntoResponse {
+pub async fn show_payouts(State(state): State<AppState>) -> impl IntoResponse {
+    let config = state.config.lock().await;
     // Get the latest export file
     let records = match get_latest_dividend_records().await {
         Ok(records) => records,
@@ -309,7 +316,7 @@ pub async fn show_payouts(
         total_wht: format!("{:.2}", total_wht),
         ticker_summary,
         monthly_div_summary,
-        settings: config.as_ref().clone(),
+        settings: config.clone(),
     };
 
     match template.render() {
@@ -323,11 +330,10 @@ pub async fn show_payouts(
 }
 
 // Handler for the settings page (GET)
-pub async fn show_settings(
-    State((_, config)): State<(Arc<Mutex<Portfolio>>, Arc<Config>)>,
-) -> impl IntoResponse {
+pub async fn show_settings(State(state): State<AppState>) -> impl IntoResponse {
+    let config = state.config.lock().await;
     let template = SettingsTemplate {
-        settings: config.as_ref().clone(),
+        settings: config.clone(),
     };
 
     match template.render() {
@@ -349,8 +355,11 @@ pub struct UpdateSettingsForm {
     portfolio_update_interval_secs: u64,
 }
 
-pub async fn save_settings(form: axum::extract::Form<UpdateSettingsForm>) -> impl IntoResponse {
-    let mut config = match Config::load_config() {
+pub async fn save_settings(
+    State(state): State<AppState>,
+    Form(form): Form<UpdateSettingsForm>,
+) -> impl IntoResponse {
+    let mut config_data = match Config::load_config() {
         Ok(config) => config,
         Err(e) => {
             return (
@@ -365,25 +374,36 @@ pub async fn save_settings(form: axum::extract::Form<UpdateSettingsForm>) -> imp
         }
     };
 
-    config.api_key = form.api_key.clone();
-    config.currency = form.currency.parse().unwrap_or_default();
-    config.mode = match form.mode.as_str() {
+    config_data.api_key = form.api_key.clone();
+    config_data.currency = form.currency.parse().unwrap_or_default();
+    config_data.mode = match form.mode.as_str() {
         "Live" => Mode::Live,
         "Demo" => Mode::Demo,
         _ => Mode::Demo, // Default to Demo if invalid value
     };
-    config.portfolio_update_interval = Duration::from_secs(form.portfolio_update_interval_secs);
+    config_data.portfolio_update_interval =
+        Duration::from_secs(form.portfolio_update_interval_secs);
 
-    match config.save_config() {
-        Ok(_) => (
-            StatusCode::OK,
-            serde_json::json!({
-                "status": "success",
-                "message": "Settings saved successfully"
-            })
-            .to_string(),
-        )
-            .into_response(),
+    match config_data.save_config() {
+        Ok(_) => {
+            // Update the shared config
+            *state.config.lock().await = config_data;
+
+            // Signal the background task to update immediately
+            if let Err(e) = state.tx.send(()).await {
+                eprintln!("Failed to signal portfolio update: {}", e);
+            }
+
+            (
+                StatusCode::OK,
+                serde_json::json!({
+                    "status": "success",
+                    "message": "Settings saved successfully"
+                })
+                .to_string(),
+            )
+                .into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             serde_json::json!({
@@ -397,20 +417,38 @@ pub async fn save_settings(form: axum::extract::Form<UpdateSettingsForm>) -> imp
 }
 
 // Handler to reset settings to default (POST)
-pub async fn reset_settings() -> impl IntoResponse {
-    let mut default_settings = crate::utils::settings::Config::default();
+pub async fn reset_settings(State(state): State<AppState>, Form(_): Form<()>) -> impl IntoResponse {
+    let default_settings = crate::utils::settings::Config::default();
 
     match default_settings.save_config() {
-        Ok(_) => axum::Json(serde_json::json!({
-            "status": "success",
-            "message": "Settings reset successfully!"
-        }))
-        .into_response(),
-        Err(e) => axum::Json(serde_json::json!({
-            "status": "error",
-            "message": format!("Error resetting settings: {}", e)
-        }))
-        .into_response(),
+        Ok(_) => {
+            // Update the shared config
+            *state.config.lock().await = default_settings;
+
+            // Signal the background task to update immediately
+            if let Err(e) = state.tx.send(()).await {
+                eprintln!("Failed to signal portfolio update: {}", e);
+            }
+
+            (
+                StatusCode::OK,
+                serde_json::json!({
+                    "status": "success",
+                    "message": "Settings reset successfully!"
+                })
+                .to_string(),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            serde_json::json!({
+                "status": "error",
+                "message": format!("Error resetting settings: {}", e)
+            })
+            .to_string(),
+        )
+            .into_response(),
     }
 }
 
@@ -418,51 +456,114 @@ pub async fn start_server(
     portfolio: Portfolio,
     config: Config,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let portfolio = Arc::new(Mutex::new(portfolio));
-    let config = Arc::new(config);
+    let portfolio = Arc::new(TokioMutex::new(portfolio));
+    let config = Arc::new(TokioMutex::new(config));
+
+    // Create a channel for signaling immediate updates
+    let (tx, mut rx) = mpsc::channel(1);
+
+    let state = AppState {
+        portfolio: portfolio.clone(),
+        config: config.clone(),
+        tx: tx.clone(),
+    };
 
     let app = Router::new()
         .route("/", get(|| async { "Welcome to T212 Portfolio Analytics" }))
-        .route("/portfolio", get(show_portfolio))
-        .route("/dividends", get(show_dividends))
-        .route("/payout", get(show_payouts))
-        .route("/settings", get(show_settings))
-        .route("/settings", post(save_settings))
-        .route("/settings/reset", post(reset_settings))
-        .with_state((portfolio.clone(), config.clone()));
+        .route(
+            "/portfolio",
+            get(show_portfolio as fn(axum::extract::State<AppState>) -> _),
+        )
+        .route(
+            "/dividends",
+            get(show_dividends as fn(axum::extract::State<AppState>) -> _),
+        )
+        .route(
+            "/payout",
+            get(show_payouts as fn(axum::extract::State<AppState>) -> _),
+        )
+        .route(
+            "/settings",
+            get(show_settings as fn(axum::extract::State<AppState>) -> _),
+        )
+        .route(
+            "/settings",
+            post(
+                save_settings as fn(axum::extract::State<AppState>, Form<UpdateSettingsForm>) -> _,
+            ),
+        )
+        .route(
+            "/settings/reset",
+            post(reset_settings as fn(axum::extract::State<AppState>, Form<()>) -> _),
+        )
+        .with_state(state);
 
     // Spawn a background async task to update the portfolio periodically
     let portfolio_for_task = portfolio.clone();
     let config_for_task = config.clone();
     task::spawn(async move {
         loop {
-            sleep(Duration::from_secs(60)).await;
+            // Wait for either the update interval or an immediate update signal
+            tokio::select! {
+                _ = sleep(Duration::from_secs(1)) => {
+                    // Check if we should update now
+                    if let Ok(()) = rx.try_recv() {
+                        // Immediate update requested
+                        println!("Performing immediate portfolio update");
+                    } else {
+                        // Get the latest config
+                        let current_config = config_for_task.lock().await.clone();
+                        // Check if it's time for a regular update
+                        if current_config.portfolio_update_interval.as_secs() == 0 {
+                            continue;
+                        }
+                        sleep(current_config.portfolio_update_interval).await;
+                    }
+                }
+                _ = rx.recv() => {
+                    // Immediate update requested
+                    println!("Performing immediate portfolio update");
+                }
+            }
+
+            // Get the latest config
+            let current_config = config_for_task.lock().await.clone();
+
             // Create a new portfolio instance and update it
             let mut new_portfolio = Portfolio::default();
-            if let Err(e) = new_portfolio.init(&config_for_task).await {
+            if let Err(e) = new_portfolio.init(&current_config).await {
                 eprintln!("Failed to initialize portfolio: {}", e);
+                continue;
             }
 
             // Process the new portfolio data
-            let orchestrator = Orchestrator::new(&config_for_task).await.unwrap();
-            if let Err(e) = new_portfolio.process(
-                &config_for_task,
-                orchestrator.currency_converter,
-                orchestrator.instrument_metadata,
-            ) {
+            let orchestrator = match Orchestrator::new(&current_config).await {
+                Ok(o) => o,
+                Err(e) => {
+                    eprintln!("Failed to create orchestrator: {}", e);
+                    continue;
+                }
+            };
+
+            if let Err(e) = new_portfolio
+                .process(
+                    &current_config,
+                    orchestrator.currency_converter,
+                    orchestrator.instrument_metadata,
+                )
+                .await
+            {
                 eprintln!("Failed to process portfolio: {}", e);
+                continue;
             }
 
             // Take the lock only briefly to swap in the new data
             {
-                let mut shared = portfolio_for_task.lock().unwrap();
+                let mut shared = portfolio_for_task.lock().await;
                 new_portfolio.update_count = shared.update_count + 1;
                 *shared = new_portfolio;
                 println!("Portfolio update count: {}", shared.update_count);
             }
-
-            // Wait for the configured update interval before next update
-            sleep(config_for_task.portfolio_update_interval).await;
         }
     });
 

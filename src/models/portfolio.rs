@@ -109,7 +109,7 @@ impl Portfolio {
         Ok(())
     }
 
-    pub fn process(
+    pub async fn process(
         &mut self,
         config: &Config,
         converter: CurrencyConverter,
@@ -170,10 +170,8 @@ impl Portfolio {
         };
 
         let parsed: Value = serde_json::from_str(&json_str).unwrap();
-        let _: Vec<_> = self
-            .positions
-            .iter_mut()
-            .map(|p| match parsed.get(p.yf_ticker.clone()) {
+        for p in &mut self.positions {
+            match parsed.get(p.yf_ticker.clone()) {
                 Some(info) => {
                     let yield_opt = info.get("dividendYield").and_then(|v| v.as_f64());
                     let mut rate_opt = info.get("dividendRate").and_then(|v| v.as_f64());
@@ -194,6 +192,7 @@ impl Portfolio {
                         } else {
                             let conv_fact = converter
                                 .convert(1.00, stock_currency, target_currency)
+                                .await
                                 .unwrap_or(1.00);
                             p.average_price *= conv_fact;
                             p.current_price *= conv_fact;
@@ -211,8 +210,8 @@ impl Portfolio {
                 None => {
                     println!("{} missing in response", p.yf_ticker);
                 }
-            })
-            .collect();
+            }
+        }
         self.last_updated = Utc::now();
         Ok(())
     }
