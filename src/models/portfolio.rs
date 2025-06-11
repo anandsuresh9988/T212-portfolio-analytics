@@ -51,6 +51,7 @@ pub struct Position {
     pub currency: String,
     pub value: f64,
     pub ppl: f64, // Profit/Loss
+    pub fx_ppl: f64, // Profit/Loss
     pub ppl_percent: f64,
     pub div_info: Option<DividendInfo>,
     pub wht: f64,
