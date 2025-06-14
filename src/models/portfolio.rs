@@ -50,8 +50,8 @@ pub struct Position {
     pub current_price: f64,
     pub currency: String,
     pub value: f64,
-    pub ppl: f64, // Profit/Loss
-    pub fx_ppl: f64, // Profit/Loss
+    pub ppl: f64,    // Profit/Loss
+    pub fx_ppl: f64, // FX Profit/Loss
     pub ppl_percent: f64,
     pub div_info: Option<DividendInfo>,
     pub wht: f64,
@@ -199,6 +199,10 @@ impl Portfolio {
                             p.current_price *= conv_fact;
                             p.value *= conv_fact;
                             rate_opt = rate_opt.map(|rate| rate * conv_fact);
+                        }
+
+                        if (p.ppl != 0.0) {
+                            p.ppl_percent = p.ppl_percent + ((p.fx_ppl / p.value) * 100.00);
                         }
                     }
 
