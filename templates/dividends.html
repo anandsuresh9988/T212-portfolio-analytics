@@ -95,32 +95,63 @@
                     {% endfor %}
                 </tbody>
             </table>
+
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Payment Date</th>
+                        <th>Div Per Share</th>
+                        <th>Total Div</th>
+                        <th>WHT</th>
+                        <th>Net Div</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in  upcoming_payments %}
+                    <tr>
+                        <td>{{ item.symbol }}</td>
+                        <td>{{ item.payment_date }}</td>
+                        <td>{{ item.div_per_share }}</td>
+                        <td>{{ item.total_dividend }}</td>
+                        <td>{{ item.total_wht }}</td>
+                        <td>{{ item.net_dividend }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-          // Format all numeric cells to 2 decimal places
-          const cells = document.querySelectorAll('td:not(:first-child)');
-          cells.forEach(cell => {
+          // Format all numeric cells to 2 decimal places, excluding Payment Date column
+          // Find all tables
+          document.querySelectorAll('table').forEach(table => {
+            // For each row in tbody
+            table.querySelectorAll('tbody tr').forEach(row => {
+              // For each cell, skip the Payment Date column (index 1 in the second table)
+              row.querySelectorAll('td').forEach((cell, idx) => {
+            // If this is the second table and this is the Payment Date column, skip
+            const isSecondTable = table.querySelector('th')?.textContent === 'Symbol'
+              && table.querySelectorAll('th')[1]?.textContent === 'Payment Date';
+            if (isSecondTable && idx === 1) return;
+
             const text = cell.textContent.trim();
-            // Check if the cell contains a percentage
             const isPercent = text.includes('%');
-            // Remove the percentage sign for parsing
             const valueText = isPercent ? text.replace('%', '') : text;
-            // Parse the number
             const value = parseFloat(valueText);
-            
-            // Format if it's a valid number
+
             if (!isNaN(value)) {
-              // Format with 2 decimal places
               const formattedValue = value.toFixed(2);
-              // Add back the percentage sign if needed
               cell.textContent = isPercent ? formattedValue + '%' : formattedValue;
             }
+              });
+            });
           });
         });
-      </script>
+          </script>
       
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

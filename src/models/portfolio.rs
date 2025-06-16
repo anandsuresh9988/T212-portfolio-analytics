@@ -20,7 +20,7 @@ use std::process::Command;
 use std::str::FromStr;
 use std::{collections::HashMap, fs};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
@@ -54,7 +54,26 @@ pub struct Position {
     pub fx_ppl: f64, // FX Profit/Loss
     pub ppl_percent: f64,
     pub div_info: Option<DividendInfo>,
+    pub div_prediction: DividendPrediction,
     pub wht: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonthlyPayment {
+    pub date: NaiveDate,
+    pub amount: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DividendPrediction {
+    pub last_4_dividends_dates: Option<Vec<MonthlyPayment>>,
+    pub next_exdate: Option<DateTime<Utc>>,
+    pub next_payment_date: Option<DateTime<Utc>>,
+    pub payment_amount_per_share: Option<f64>,
+    pub net_payment_amount: Option<f64>,
+    pub net_wht: Option<f64>,
+    pub net_payment_amount_after_wht: Option<f64>,
+    pub predicted_monthly_payments: Option<Vec<MonthlyPayment>>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -116,6 +135,8 @@ impl Portfolio {
         converter: CurrencyConverter,
         instrument_metadata: Vec<InstrumentMetadata>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut next_div_payments: Vec<DividendPrediction> = Vec::new();
+
         if self.positions.is_empty() {
             println!("No positions are available!");
             return Err(Box::new(PortfolioError::NoPositionsError));
@@ -174,8 +195,80 @@ impl Portfolio {
         for p in &mut self.positions {
             match parsed.get(p.yf_ticker.clone()) {
                 Some(info) => {
+                    // println!("Processing ticker: {:?}", info);
                     let yield_opt = info.get("dividendYield").and_then(|v| v.as_f64());
                     let mut rate_opt = info.get("dividendRate").and_then(|v| v.as_f64());
+
+                    p.div_prediction.last_4_dividends_dates = info
+                        .get("last_4_dividends")
+                        .and_then(|v| v.as_object())
+                        .map(|obj| {
+                            obj.iter()
+                                .filter_map(|(date_str, value)| {
+                                    NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                                        .ok()
+                                        .and_then(|date| {
+                                            value
+                                                .as_f64()
+                                                .map(|v| MonthlyPayment { date, amount: v })
+                                        })
+                                })
+                                .collect()
+                        });
+
+                    p.div_prediction.next_payment_date = info.get("dividendDate").and_then(|v| {
+                        // dividendDate is always integer (timestamp)
+                        v.as_i64()
+                            .and_then(|ts| DateTime::<Utc>::from_timestamp(ts, 0))
+                    });
+
+                    p.div_prediction.next_exdate = info.get("exDividendDate").and_then(|v| {
+                        // exDividendDate is always integer (timestamp)
+                        v.as_i64()
+                            .and_then(|ts| DateTime::<Utc>::from_timestamp(ts, 0))
+                    });
+                    p.div_prediction.payment_amount_per_share = info
+                        .get("corporateActions")
+                        .and_then(|arr| arr.get(0))
+                        .and_then(|entry| entry.get("meta"))
+                        .and_then(|entry| entry.get("amount"))
+                        .and_then(|a| {
+                            a.as_f64()
+                                .or_else(|| a.as_str().and_then(|s| s.parse::<f64>().ok()))
+                        });
+
+                    if !p.div_prediction.payment_amount_per_share.is_none() {
+                        p.div_prediction.net_payment_amount = p
+                            .div_prediction
+                            .payment_amount_per_share
+                            .map(|amt| amt * p.quantity);
+
+                        p.div_prediction.net_wht = p
+                            .div_prediction
+                            .net_payment_amount
+                            .map(|amt| (amt * p.wht) / 100.0);
+                        p.div_prediction.net_payment_amount_after_wht = p
+                            .div_prediction
+                            .net_payment_amount
+                            .map(|amt| amt - p.div_prediction.net_wht.unwrap_or(0.0));
+                    }
+
+                    println!(
+                        "Processing ticker: {}, div_prediction: {:?}",
+                        p.yf_ticker, p.div_prediction
+                    );
+
+                    // if !p.div_prediction.next_payment_amount.is_none() {
+                    //     next_div_payments.push(p.div_prediction.clone());
+                    // }
+
+                    // next_div_payments.sort_by(|a, b| {
+                    //     a.next_payment_date
+                    //         .unwrap_or_default()
+                    //         .cmp(&b.next_payment_date.unwrap_or_default())
+                    // });
+
+                    //print!("{:?}", next_div_payments);
 
                     if p.currency == "GBX" {
                         p.average_price /= 100.0;
@@ -217,6 +310,7 @@ impl Portfolio {
                 }
             }
         }
+
         self.last_updated = Utc::now();
         Ok(())
     }

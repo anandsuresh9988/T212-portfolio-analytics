@@ -39,17 +39,29 @@ use tokio::time::{sleep, Duration};
 use crate::{
     models::{
         dividend::DividendInfo,
-        portfolio::{Portfolio, Position},
+        portfolio::{DividendPrediction, Portfolio, Position},
     },
     services::orchestrator::Orchestrator,
     utils::settings::{Config, Mode},
 };
+
+pub struct UpComingDivPaymetsPred {
+    pub symbol: String,
+    pub payment_date: String,
+    pub exdate: String,
+    pub div_per_share: f64,
+    pub no_of_shares: f64,
+    pub total_dividend: f64,
+    pub total_wht: f64,
+    pub net_dividend: f64,
+}
 
 #[derive(Template)]
 #[template(path = "dividends.html")]
 pub struct DividendsTemplate {
     pub dividends: Vec<DividendInfo>,
     pub div_per_year: String,
+    pub upcoming_payments: Vec<UpComingDivPaymetsPred>,
     pub settings: Config,
 }
 
@@ -203,9 +215,47 @@ pub async fn show_dividends(State(state): State<AppState>) -> impl IntoResponse 
             .partial_cmp(&a.annual_income_after_wht)
             .unwrap()
     });
+
+    let mut upcoming_payments: Vec<UpComingDivPaymetsPred> = Vec::new();
+    portfolio.positions.iter().for_each(|pos| {
+        if let Some(_pay) = &pos.div_prediction.payment_amount_per_share {
+            upcoming_payments.push(UpComingDivPaymetsPred {
+                symbol: pos.ticker.clone(),
+                payment_date: pos
+                    .div_prediction
+                    .next_payment_date
+                    .map(|d| d.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+                exdate: pos
+                    .div_prediction
+                    .next_exdate
+                    .map(|d| d.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+                div_per_share: pos.div_prediction.payment_amount_per_share.unwrap_or(0.0),
+                no_of_shares: pos.quantity,
+                total_dividend: pos.div_prediction.net_payment_amount.unwrap_or(0.0),
+                total_wht: pos.div_prediction.net_wht.unwrap_or(0.0),
+                net_dividend: pos
+                    .div_prediction
+                    .net_payment_amount_after_wht
+                    .unwrap_or(0.0),
+            });
+        }
+    });
+
+    upcoming_payments.sort_by(|a, b| {
+        NaiveDate::parse_from_str(&a.payment_date, "%Y-%m-%d")
+            .unwrap_or(NaiveDate::from_ymd_opt(9999, 12, 31).unwrap())
+            .cmp(
+                &NaiveDate::parse_from_str(&b.payment_date, "%Y-%m-%d")
+                    .unwrap_or(NaiveDate::from_ymd_opt(9999, 12, 31).unwrap()),
+            )
+    });
+
     let template = DividendsTemplate {
         dividends,
         div_per_year: format!("{:.2}", div_per_year),
+        upcoming_payments,
         settings: config.clone(),
     };
 

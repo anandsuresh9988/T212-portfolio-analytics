@@ -17,12 +17,12 @@
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
 use crate::{
-    models::portfolio::Position,
+    models::portfolio::{DividendPrediction, Position},
     utils::settings::{Config, Mode},
 };
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
-use std::env;
+use std::{default, env};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -223,6 +223,7 @@ impl Trading212Client {
                 div_info: None,
                 yf_ticker: String::new(),
                 wht: 0.0,
+                div_prediction: DividendPrediction::default(),
             })
             .collect();
 
