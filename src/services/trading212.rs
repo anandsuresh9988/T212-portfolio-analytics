@@ -125,8 +125,11 @@ pub struct InstrumentMetadata {
 
 impl Trading212Client {
     pub fn new(rqst_type: RequestType, config: &Config) -> Result<Self, Trading212Error> {
-        let api_key =
-            env::var("TRADING212_API_TOKEN").map_err(|_| Trading212Error::MissingApiKey)?;
+        let api_key = match config.api_key.clone() {
+            Some(key) => key,
+            None => return Err(Trading212Error::MissingApiKey),
+        };
+
         let mut base_url = "".to_string();
 
         let target = env::var("T212_TARGET").unwrap_or_else(|_| "live".to_string());

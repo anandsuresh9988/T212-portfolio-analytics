@@ -30,6 +30,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex as TokioMutex;
@@ -91,6 +92,7 @@ pub struct PortfolioTemplate {
 #[template(path = "settings.html")]
 pub struct SettingsTemplate {
     pub settings: Config,
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -193,10 +195,14 @@ pub struct AppState {
     pub portfolio: Arc<TokioMutex<Portfolio>>,
     pub config: Arc<TokioMutex<Config>>,
     pub tx: mpsc::Sender<()>,
+    pub config_success: Arc<AtomicBool>,
 }
 
 // Handler for the dividends page
 pub async fn show_dividends(State(state): State<AppState>) -> impl IntoResponse {
+    if !state.config_success.load(Ordering::SeqCst) {
+        return axum::response::Redirect::to("/settings").into_response();
+    }
     let portfolio = state.portfolio.lock().await;
     let config = state.config.lock().await;
     let mut dividends: Vec<DividendInfo> = portfolio
@@ -271,6 +277,9 @@ pub async fn show_dividends(State(state): State<AppState>) -> impl IntoResponse 
 
 // Handler for the dividends page
 pub async fn show_portfolio(State(state): State<AppState>) -> impl IntoResponse {
+    if !state.config_success.load(Ordering::SeqCst) {
+        return axum::response::Redirect::to("/settings").into_response();
+    }
     let portfolio = state.portfolio.lock().await;
     let config = state.config.lock().await;
     let positions = &portfolio.positions;
@@ -306,6 +315,9 @@ pub async fn show_portfolio(State(state): State<AppState>) -> impl IntoResponse 
 
 // Handler for the payout page
 pub async fn show_payouts(State(state): State<AppState>) -> impl IntoResponse {
+    if !state.config_success.load(Ordering::SeqCst) {
+        return axum::response::Redirect::to("/settings").into_response();
+    }
     let config = state.config.lock().await;
     // Get the latest export file
     let records = match get_latest_dividend_records().await {
@@ -382,8 +394,20 @@ pub async fn show_payouts(State(state): State<AppState>) -> impl IntoResponse {
 // Handler for the settings page (GET)
 pub async fn show_settings(State(state): State<AppState>) -> impl IntoResponse {
     let config = state.config.lock().await;
+    let error_message = if config.mode == Mode::Live
+        && config
+            .api_key
+            .as_ref()
+            .map(|k| k.trim().is_empty())
+            .unwrap_or(true)
+    {
+        Some("Trading212 API key is missing or invalid. Please enter a valid API key to use Live mode.".to_string())
+    } else {
+        None
+    };
     let template = SettingsTemplate {
         settings: config.clone(),
+        error_message,
     };
 
     match template.render() {
@@ -505,9 +529,11 @@ pub async fn reset_settings(State(state): State<AppState>, Form(_): Form<()>) ->
 pub async fn start_server(
     portfolio: Portfolio,
     config: Config,
+    config_success: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let portfolio = Arc::new(TokioMutex::new(portfolio));
     let config = Arc::new(TokioMutex::new(config));
+    let config_success = Arc::new(AtomicBool::new(config_success));
 
     // Create a channel for signaling immediate updates
     let (tx, mut rx) = mpsc::channel(1);
@@ -516,6 +542,7 @@ pub async fn start_server(
         portfolio: portfolio.clone(),
         config: config.clone(),
         tx: tx.clone(),
+        config_success: config_success.clone(),
     };
 
     let app = Router::new()
@@ -551,6 +578,7 @@ pub async fn start_server(
     // Spawn a background async task to update the portfolio periodically
     let portfolio_for_task = portfolio.clone();
     let config_for_task = config.clone();
+    let config_success_for_task = config_success.clone();
     task::spawn(async move {
         loop {
             // Wait for either the update interval or an immediate update signal
@@ -583,13 +611,18 @@ pub async fn start_server(
             let mut new_portfolio = Portfolio::default();
             if let Err(e) = new_portfolio.init(&current_config).await {
                 eprintln!("Failed to initialize portfolio: {}", e);
+                config_success_for_task.store(false, Ordering::SeqCst);
                 continue;
             }
 
             // Process the new portfolio data
             let orchestrator = match Orchestrator::new(&current_config).await {
-                Ok(o) => o,
+                Ok(o) => {
+                    config_success_for_task.store(true, Ordering::SeqCst);
+                    o
+                }
                 Err(e) => {
+                    config_success_for_task.store(false, Ordering::SeqCst);
                     eprintln!("Failed to create orchestrator: {}", e);
                     continue;
                 }

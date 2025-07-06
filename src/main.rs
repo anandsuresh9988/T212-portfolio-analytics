@@ -30,9 +30,23 @@ use t212_portfolio_analytics::webui;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an empty/default portfolio
     let mut portfolio: Portfolio = Portfolio::default();
+    let mut config_success: bool = false;
 
-    let config = Config::load_config()?;
-    let orchestrator: Orchestrator = Orchestrator::new(&config).await?;
+    let config = Config::load_config().map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+    let orchestrator = match Orchestrator::new(&config).await {
+        Ok(orchestrator) => {
+            println!("Orchestrator initialized successfully");
+            config_success= true;
+            orchestrator
+        }
+        Err(e) => {
+            eprintln!("Failed to initialize orchestrator: {}", e);
+            return Err(e.into());
+        }
+    };
+
+    if config_success {
     portfolio.init(&config).await?;
     //println!("Instrument metadata {:?}", orchestrator.instrument_metadata);
 
@@ -47,9 +61,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             orchestrator.instrument_metadata,
         )
         .await?;
+    }
+
 
     // Start the web server
-    webui::start_server(portfolio, config).await?;
+    webui::start_server(portfolio, config, config_success).await?;
 
     Ok(())
 }
