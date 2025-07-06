@@ -9,84 +9,158 @@ T212 Portfolio Analytics is a Rust/Axum web application for analyzing your Tradi
 - Dividend payout history and summaries
 - Monthly and per-ticker dividend analytics
 - CSV export of dividend payouts
-- Modern, responsive web UI (Bootstrap)
-
-## Architecture
-
-```mermaid
-flowchart TD
-    User[User (Web Browser)]
-    UI[Web UI (Axum + Askama Templates)]
-    WebServer[Axum Web Server]
-    Portfolio[Portfolio Logic & Models]
-    Trading212[Trading212 API]
-    Python[Python Stock Info Script]
-    Cache[Cache/JSON Files]
-
-    User <--> UI
-    UI <--> WebServer
-    WebServer <--> Portfolio
-    Portfolio <--> Trading212
-    Portfolio <--> Python
-    Portfolio <--> Cache
-    Trading212 <--> WebServer
-```
-
-- **User** interacts with the app via a web browser.
-- **Web UI** is rendered using Askama templates and Bootstrap.
-- **Axum Web Server** handles HTTP requests and routes.
-- **Portfolio Logic** fetches and processes data from Trading212 and Python scripts, and manages caching.
-- **Trading212 API** provides portfolio and dividend data.
-- **Python Script** fetches additional stock info (e.g., from Yahoo Finance).
-- **Cache** stores intermediate data for performance.
 
 ## Getting Started
 
 ### Prerequisites
-- Rust (latest stable recommended)
-- Trading212 account with API access
-- Python 3 (for some stock info scripts)
+- **Rust** (latest stable version recommended)
+  - Install from [https://rustup.rs/](https://rustup.rs/)
+- **Python 3.8+** (for stock info scripts)
+  - Install from [https://python.org/](https://python.org/)
+- **Trading212 account** with API access
+  - Create account at [https://trading212.com/](https://trading212.com/)
+  - Enable API access in your account settings
 
-### Setup
-1. **Clone the repository:**
-   ```sh
-   git clone <repo-url>
-   cd T212-portfolio-analytics
-   ```
-2. **Set up Python virtual environment:**
-   ```sh
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-   (Replace `python3` with `python` if necessary on your system)
-3. **Set your Trading212 API key:**
-   - Create a `.env` file in the project root:
-     ```sh
-     echo "TRADING212_API_TOKEN=your_api_key_here" > .env
-     ```
-   - (Optional) Set `T212_TARGET=live` or `T212_TARGET=demo` in `.env`.
-4. **Build the project:**
-   ```sh
-   cargo build
-   ```
-5. **Run the application:**
-   ```sh
-   cargo run
-   ```
-6. **Open your browser:**
-   - Go to [http://localhost:3001](http://localhost:3001)
+### Setup Instructions
 
-## Usage
-- The app will periodically fetch and update your portfolio and dividend data.
-- Navigate between Portfolio, Dividends, and Payouts using the navbar.
-- Export your dividend payout history as CSV from the Payouts page.
+#### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd T212-portfolio-analytics
+```
+
+#### 2. Set Up Python Virtual Environment
+The application uses Python scripts for fetching additional stock information. You need to create a virtual environment to isolate dependencies:
+
+**On Linux/macOS:**
+```bash
+# Create virtual environment
+python3 -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+**On Windows:**
+```bash
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+.venv\Scripts\activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+**Note:** Always activate the virtual environment before running the application:
+- Linux/macOS: `source .venv/bin/activate`
+- Windows: `.venv\Scripts\activate`
+
+#### 3. Configure Trading212 API Key
+You need to set up your Trading212 API credentials:
+
+1. **Get your API key:**
+   - Log into your Trading212 account
+   - Go to Settings → API
+   - Generate a new API key
+   - Copy the API key
+
+2. **Configure the API key in the application:**
+   - The API key should be configured directly in the application settings
+   - Follow the application's built-in configuration process
+   - Ensure your Trading212 account has API access enabled
+
+**Important:** Keep your API key secure and never share it publicly.
+
+#### 4. Build and Run the Application
+
+**Build the project:**
+```bash
+cargo build --release
+```
+
+**Run the web application:**
+```bash
+cargo run
+```
+
+**Access the web interface:**
+- Open your web browser
+- Navigate to: [http://localhost:3001](http://localhost:3001)
+
+### Running the Application
+
+#### Development Mode
+```bash
+# Activate Python virtual environment first
+source .venv/bin/activate  # Linux/macOS
+# OR
+.venv\Scripts\activate     # Windows
+
+# Run in development mode
+cargo run
+```
+
+#### Production Mode
+```bash
+# Build optimized version
+cargo build --release
+
+# Run the optimized binary
+./target/release/t212-portfolio-analytics
+```
+
+#### Stopping the Application
+- Press `Ctrl+C` in the terminal where the application is running
+
+## Usage Guide
+
+### Web Interface
+1. **Portfolio Page:** View current positions, profit/loss, and portfolio value
+2. **Dividends Page:** Analyze dividend history and yields
+3. **Payouts Page:** Export dividend payout data as CSV
+
+### Data Refresh
+- The application automatically fetches data from Trading212 API
+- Data is cached locally for performance
+- Refresh manually by restarting the application
+
+### Exporting Data
+- Go to the "Payouts" page
+- Click "Export CSV" to download dividend payout history
+- CSV includes date, ticker, amount, and withholding tax information
 
 ## What This App Shows
-- Current portfolio positions, value, and profit/loss
-- Dividend yield and annual income estimates
-- Detailed dividend payout history (by date, ticker, and month)
-- Withholding tax (WHT) summaries
+- **Portfolio Overview:** Current positions, total value, and profit/loss
+- **Dividend Analytics:** Yield calculations and annual income estimates
+- **Payout History:** Detailed dividend payments by date and ticker
+- **Tax Information:** Withholding tax (WHT) summaries
+- **Performance Metrics:** Monthly and yearly dividend performance
+
+## Troubleshooting
+
+### Common Issues
+1. **Python virtual environment not activated:**
+   - Ensure you see `(.venv)` in your terminal prompt
+   - Run: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)
+
+2. **API key not working:**
+   - Verify your API key is correct in the application settings
+   - Check that your Trading212 account has API access enabled
+   - Ensure you're using the correct account type (demo/live)
+
+3. **Port already in use:**
+   - The application runs on port 3001 by default
+   - If port is busy, modify the port in the application configuration
+
+4. **Build errors:**
+   - Ensure Rust is installed: `rustc --version`
+   - Update Rust: `rustup update`
+   - Clean and rebuild: `cargo clean && cargo build`
 
 ## Disclaimer
 This software is provided for personal, non-commercial, and educational use only. It interacts with your Trading212 account using your API credentials. **Use at your own risk.**
