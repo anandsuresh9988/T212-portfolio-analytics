@@ -135,8 +135,6 @@ impl Portfolio {
         converter: CurrencyConverter,
         instrument_metadata: Vec<InstrumentMetadata>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut next_div_payments: Vec<DividendPrediction> = Vec::new();
-
         if self.positions.is_empty() {
             println!("No positions are available!");
             return Err(Box::new(PortfolioError::NoPositionsError));
@@ -258,18 +256,6 @@ impl Portfolio {
                         p.yf_ticker, p.div_prediction
                     );
 
-                    // if !p.div_prediction.next_payment_amount.is_none() {
-                    //     next_div_payments.push(p.div_prediction.clone());
-                    // }
-
-                    // next_div_payments.sort_by(|a, b| {
-                    //     a.next_payment_date
-                    //         .unwrap_or_default()
-                    //         .cmp(&b.next_payment_date.unwrap_or_default())
-                    // });
-
-                    //print!("{:?}", next_div_payments);
-
                     if p.currency == "GBX" {
                         p.average_price /= 100.0;
                         p.current_price /= 100.0;
@@ -285,7 +271,7 @@ impl Portfolio {
                             );
                         } else {
                             let conv_fact = converter
-                                .convert(1.00, stock_currency, target_currency)
+                                .get_conversion_factor(stock_currency, target_currency)
                                 .await
                                 .unwrap_or(1.00);
                             p.average_price *= conv_fact;
@@ -373,9 +359,6 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn st
     }
 
     println!("No existing export found. Initiating download from Trading212...");
-
-    // Load environment variables
-    dotenv::dotenv().map_err(|e| format!("Failed to load .env file: {}", e))?;
 
     // Initialize Trading212 client for exports
     let trading212_client = Trading212Client::new(RequestType::Export, &config)

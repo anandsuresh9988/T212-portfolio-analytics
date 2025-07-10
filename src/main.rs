@@ -18,11 +18,7 @@
 
 use t212_portfolio_analytics::models::portfolio::download_export_if_needed;
 use t212_portfolio_analytics::models::portfolio::Portfolio;
-use t212_portfolio_analytics::services::orchestrator;
 use t212_portfolio_analytics::services::orchestrator::Orchestrator;
-use t212_portfolio_analytics::services::trading212::RequestType;
-use t212_portfolio_analytics::services::trading212::Trading212Client;
-use t212_portfolio_analytics::utils::currency::{Currency, CurrencyConverter};
 use t212_portfolio_analytics::utils::settings::Config;
 use t212_portfolio_analytics::webui;
 
@@ -37,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orchestrator = match Orchestrator::new(&config).await {
         Ok(orchestrator) => {
             println!("Orchestrator initialized successfully");
-            config_success= true;
+            config_success = true;
             orchestrator
         }
         Err(e) => {
@@ -47,22 +43,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if config_success {
-    portfolio.init(&config).await?;
-    //println!("Instrument metadata {:?}", orchestrator.instrument_metadata);
+        portfolio.init(&config).await?;
+        //println!("Instrument metadata {:?}", orchestrator.instrument_metadata);
 
-    // Try to download export if needed
-    download_export_if_needed(&config).await?;
+        // Try to download export if needed
+        download_export_if_needed(&config).await?;
 
-    // Process portfolio with cache file and currency converter
-    portfolio
-        .process(
-            &config,
-            orchestrator.currency_converter,
-            orchestrator.instrument_metadata,
-        )
-        .await?;
+        // Process portfolio with cache file and currency converter
+        portfolio
+            .process(
+                &config,
+                orchestrator.currency_converter,
+                orchestrator.instrument_metadata,
+            )
+            .await?;
     }
-
 
     // Start the web server
     webui::start_server(portfolio, config, config_success).await?;

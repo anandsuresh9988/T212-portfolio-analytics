@@ -98,14 +98,13 @@ impl CurrencyConverter {
         Ok(())
     }
 
-    pub async fn convert(
+    pub async fn get_conversion_factor(
         &self,
-        amount: f64,
         from: Currency,
         to: Currency,
     ) -> Result<f64, CurrencyError> {
         if from == to {
-            return Ok(amount);
+            return Ok(1.0);
         }
 
         self.ensure_rates_fresh().await?;
@@ -118,9 +117,7 @@ impl CurrencyConverter {
             .get(to.as_str())
             .ok_or(CurrencyError::RateNotAvailable)?;
 
-        // Convert to GBP first (base currency), then to target currency
-        let amount_in_gbp = amount / from_rate;
-        Ok(amount_in_gbp * to_rate)
+        Ok(to_rate / from_rate)
     }
 }
 
