@@ -16,7 +16,5 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-pub mod exchange_rate;
 pub mod orchestrator;
 pub mod trading212;
-//pub mod yahoo_finance;
