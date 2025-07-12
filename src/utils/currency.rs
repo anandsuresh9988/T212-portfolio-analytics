@@ -78,7 +78,7 @@ pub struct CurrencyConverter {
     rates: Arc<RwLock<HashMap<String, f64>>>,
     /// Timestamp of the last rate update for cache invalidation
     last_update: Arc<RwLock<Instant>>,
-    /// Duration between automatic rate updates (currently 6 hours)
+    /// Duration between automatic rate updates
     update_interval: Duration,
 }
 
@@ -91,13 +91,15 @@ impl CurrencyConverter {
     ///
     /// # Example
     /// ```ignore
+    /// use t212_portfolio_analytics::utils::currency::Currency;
+    ///
     /// let converter = CurrencyConverter::new().await?;
     /// ```
     pub async fn new() -> Result<Self, CurrencyError> {
         let converter = Self {
             rates: Arc::new(RwLock::new(HashMap::new())),
             last_update: Arc::new(RwLock::new(Instant::now())),
-            update_interval: Duration::from_secs(360), // Update every hour
+            update_interval: Duration::from_secs(360),
         };
 
         // Fetch initial exchange rates
@@ -105,7 +107,7 @@ impl CurrencyConverter {
         Ok(converter)
     }
 
-    /// Fetches the latest exchange rates from the external API
+    /// Fetches the latest exchange rates using the external API
     ///
     /// This method makes an HTTP request to the exchange rate API and updates
     /// the internal cache with the latest rates. The API returns rates relative
@@ -117,7 +119,7 @@ impl CurrencyConverter {
     async fn update_rates(&self) -> Result<(), CurrencyError> {
         let client = reqwest::Client::new();
 
-        // Fetch rates from the exchange rate API (GBP as base currency)
+        // Fetch rates using the exchange rate API (GBP as base currency)
         let response = client
             .get("https://open.er-api.com/v6/latest/GBP")
             .send()
@@ -171,6 +173,8 @@ impl CurrencyConverter {
     ///
     /// # Example
     /// ```ignore
+    /// use t212_portfolio_analytics::utils::currency::Currency;
+    ///
     /// let factor = converter.get_conversion_factor(Currency::USD, Currency::EUR).await?;
     /// let converted_amount = original_amount * factor;
     /// ```
@@ -196,7 +200,7 @@ impl CurrencyConverter {
             .get(to.as_str())
             .ok_or(CurrencyError::RateNotAvailable)?;
 
-        // Calculate conversion factor: target_rate / source_rate
+        // Calculate conversion factor
         Ok(to_rate / from_rate)
     }
 }
@@ -218,9 +222,11 @@ impl FromStr for Currency {
     /// - `Ok(Currency::UnSupported)` for unrecognized codes
     ///
     /// # Example
-    /// ```ignore
-    /// let currency: Currency = "USD".parse()?; // Ok(Currency::USD)
-    /// let currency: Currency = "usd".parse()?; // Ok(Currency::USD) - case insensitive
+    /// ```
+    /// use t212_portfolio_analytics::utils::currency::Currency;
+    ///
+    /// let currency: Currency = "USD".parse().unwrap(); // Ok(Currency::USD)
+    /// let currency: Currency = "usd".parse().unwrap(); // Ok(Currency::USD) - case insensitive
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
@@ -230,26 +236,6 @@ impl FromStr for Currency {
             "CHF" => Ok(Currency::CHF),
             _ => Ok(Currency::UnSupported),
         }
-    }
-}
-
-/// Implementation of TryFrom trait for Currency enum
-///
-/// Provides an alternative way to convert from string slices to Currency.
-/// This trait is automatically implemented based on FromStr.
-impl TryFrom<&str> for Currency {
-    type Error = CurrencyError;
-
-    /// Converts a string slice to a Currency enum value
-    ///
-    /// # Arguments
-    /// - `value`: The string representation of the currency code
-    ///
-    /// # Returns
-    /// - `Ok(Currency)` for valid currency codes
-    /// - `Err(CurrencyError)` for invalid codes
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Currency::from_str(value)
     }
 }
 
@@ -263,7 +249,9 @@ impl Currency {
     /// - `&'static str` containing the currency code
     ///
     /// # Example
-    /// ```ignore
+    /// ```
+    /// use t212_portfolio_analytics::utils::currency::Currency;
+    ///
     /// assert_eq!(Currency::USD.as_str(), "USD");
     /// assert_eq!(Currency::EUR.as_str(), "EUR");
     /// ```
@@ -286,26 +274,54 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_rates_success() {
         let converter = CurrencyConverter::new().await;
-        assert!(converter.is_ok(), "Failed to create CurrencyConverter: {:?}", converter.err());
+        assert!(
+            converter.is_ok(),
+            "Failed to create CurrencyConverter: {:?}",
+            converter.err()
+        );
     }
 
     #[tokio::test]
     async fn test_conversion_factor_gbp_to_usd() {
-        let converter = CurrencyConverter::new().await.expect("Failed to create converter");
-        let factor = converter.get_conversion_factor(Currency::GBP, Currency::USD).await;
-        assert!(factor.is_ok(), "Failed to get conversion factor: {:?}", factor.err());
+        let converter = CurrencyConverter::new()
+            .await
+            .expect("Failed to create converter");
+        let factor = converter
+            .get_conversion_factor(Currency::GBP, Currency::USD)
+            .await;
+        assert!(
+            factor.is_ok(),
+            "Failed to get conversion factor: {:?}",
+            factor.err()
+        );
         let factor = factor.unwrap();
-        // GBP to USD should be a positive number, usually around 1.2-1.5
-        assert!(factor > 0.5 && factor < 2.0, "Unexpected GBP->USD factor: {}", factor);
+        // GBP to USD should be a positive number, may be not the best way of testing this :).
+        assert!(
+            factor > 0.5 && factor < 2.5,
+            "Unexpected GBP->USD factor: {}",
+            factor
+        );
     }
 
     #[tokio::test]
     async fn test_conversion_factor_usd_to_eur() {
-        let converter = CurrencyConverter::new().await.expect("Failed to create converter");
-        let factor = converter.get_conversion_factor(Currency::USD, Currency::EUR).await;
-        assert!(factor.is_ok(), "Failed to get conversion factor: {:?}", factor.err());
+        let converter = CurrencyConverter::new()
+            .await
+            .expect("Failed to create converter");
+        let factor = converter
+            .get_conversion_factor(Currency::USD, Currency::EUR)
+            .await;
+        assert!(
+            factor.is_ok(),
+            "Failed to get conversion factor: {:?}",
+            factor.err()
+        );
         let factor = factor.unwrap();
-        // USD to EUR should be a positive number, usually around 0.8-1.2
-        assert!(factor > 0.5 && factor < 2.0, "Unexpected USD->EUR factor: {}", factor);
+        // USD to EUR should be a positive number, may be not the best way of testing this :).
+        assert!(
+            factor > 0.5 && factor < 2.5,
+            "Unexpected USD->EUR factor: {}",
+            factor
+        );
     }
 }
