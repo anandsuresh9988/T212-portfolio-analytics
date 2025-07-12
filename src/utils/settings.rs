@@ -17,7 +17,6 @@
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
 use std::{
-    default,
     fs::File,
     io::{BufReader, BufWriter, Error as IoError},
     path::Path,
