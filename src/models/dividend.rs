@@ -1,8 +1,8 @@
 // File: dividend.rs
 // Copyright (c) 2025 Anand Sureshkumar
-//
-// This source code is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
-// See the LICENSE file or visit http://creativecommons.org/licenses/by-nc/4.0/ for details.
+// This file is part of T212 Portfolio Analytics.
+// Licensed for personal and educational use only. Commercial use prohibited.
+// See the LICENSE file for details.
 //
 // Permission is granted to use, copy, and modify this code for personal, non-commercial, or educational purposes.
 //
