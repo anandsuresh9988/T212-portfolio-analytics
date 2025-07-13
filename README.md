@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://www.python.org/)
 [![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-red)](LICENSE)
 
-**Analyze and visualize your Trading 212 investment portfolio, dividends, and performance with a beautiful web UI.**
+**An app to fetch Trading 212 investment portfolio and predict the dividends and yield**
 
 ---
 
@@ -13,7 +13,6 @@
 - 📊 **Portfolio Dashboard:** See your positions, profit/loss, and value breakdowns
 - 💸 **Dividend Analytics:** Track payouts, yields, and monthly/yearly summaries
 - 📅 **Upcoming Payments:** Predict and visualize future dividends
-- 📈 **Performance Metrics:** Yield, tax, and historical analytics
 - 🗃️ **CSV Export:** Download your dividend history for your records
 
 ---
@@ -40,7 +39,7 @@
    ```
 
 4. **Open your browser:**  
-   [http://localhost:3001](http://localhost:3001)
+   [http://127.0.0.1:3000/dividends](http://127.0.0.1:3000/dividends)
 
 ---
 
@@ -62,8 +61,8 @@
 ## 🖥️ Usage
 
 - **Portfolio:** View your current holdings, values, and P/L
-- **Dividends:** Analyze past and upcoming payouts
-- **Payouts:** Export your dividend history as CSV
+- **Dividends:** Shows dividends of each stock for the year
+- **Payouts:** Shows the dividends received so far
 - **Settings:** Configure API key, currency, and update intervals
 
 ---
@@ -89,7 +88,7 @@ See the [LICENSE](LICENSE) file for details.
 ---
 
 **Author:** Anand Sureshkumar  
-**Contact:** anandsureshkumar9988@gmail.com
+**Contact:** anandsuresh9988@gmail.com
 
 ---
 
