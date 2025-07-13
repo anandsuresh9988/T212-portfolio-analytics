@@ -1,28 +1,28 @@
-Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)
+Custom License for T212 Portfolio Analytics
 
-This software is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
-To view a copy of this license, visit:
+Copyright (c) 2025 Anand Sureshkumar
 
-    https://creativecommons.org/licenses/by-nc/4.0/
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and distribute the Software for personal and educational purposes,
+subject to the following conditions:
 
-Author: Anand Sureshkumar  
-Contact: anandsuresh9988@gmail.com  
-Year: 2025
+1. The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
 
-Permissions:
-- You may copy, use, and modify this software for personal, non-commercial, or educational purposes.
-- You must provide appropriate credit to the original author.
-- You may not use the software for commercial purposes without prior written permission.
+2. Commercial use of the Software, including but not limited to use in a
+   commercial product, service, or for-profit activity, is strictly prohibited
+   without the express prior written permission of the author.
 
-Restrictions:
-- Commercial use, resale, hosting as a service, or integration into commercial products is strictly prohibited.
-- The license does not grant any warranties or guarantees of any kind.
+3. The author (Anand Sureshkumar) retains all rights to future monetization and
+   commercial licensing of the Software.
 
-Disclaimer:
-This software interacts with external APIs (such as Trading 212) using user-provided credentials.
-The author is not responsible for any consequences, including but not limited to:
-- Security vulnerabilities or data breaches
-- Account lockouts or bans
-- Financial losses or damages
+4. The Software is provided "as is", without warranty of any kind, express or
+   implied, including but not limited to the warranties of merchantability,
+   fitness for a particular purpose and noninfringement. In no event shall the
+   authors or copyright holders be liable for any claim, damages or other
+   liability, whether in an action of contract, tort or otherwise, arising from,
+   out of or in connection with the Software or the use or other dealings in the
+   Software.
 
-**USE THIS SOFTWARE AT YOUR OWN RISK.**
+For commercial licensing or other inquiries, please contact: anandsuresh9988@gmail.com

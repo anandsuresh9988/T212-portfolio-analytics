@@ -1,3 +1,8 @@
+// Copyright (c) 2025 Anand Sureshkumar
+// This file is part of T212 Portfolio Analytics.
+// Licensed for personal and educational use only. Commercial use prohibited.
+// See the LICENSE file for details.
+
 use std::fmt::Write;
 
 pub fn format(value: &str, fmt: &str) -> askama::Result<String> {

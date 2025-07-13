@@ -167,7 +167,16 @@ This software is provided for personal, non-commercial, and educational use only
 
 - The author is not responsible for any data loss, account issues, or financial losses.
 - No warranty is provided. Always verify results independently.
-- For commercial licensing or inquiries, contact: anandsuresh9988@gmail.com
+- For commercial licensing or inquiries, contact: anandsureshkumar9988@gmail.com
 
 ## License
-This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License. See the [LICENSE](LICENSE) file for full terms. 
+This project is licensed under a custom license:
+
+- Free for personal and educational use
+- Commercial use is strictly prohibited without written permission
+- The author retains all rights to future monetization
+
+See the [LICENSE](LICENSE) file for details.
+
+**Author:** Anand Sureshkumar  
+**Contact:** anandsureshkumar9988@gmail.com 
