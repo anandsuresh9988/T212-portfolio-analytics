@@ -3,3 +3,6 @@
 target/
 *.lock
 .env
+
+# Keep everything in demo folder
+!demo_data/*
