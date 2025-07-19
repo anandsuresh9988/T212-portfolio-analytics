@@ -1,3 +1,4 @@
+use std::f32::consts::E;
 // File: portfolio.rs
 // Copyright (c) 2025 Anand Sureshkumar
 // This file is part of T212 Portfolio Analytics.
@@ -92,37 +93,47 @@ impl Portfolio {
         // Check if we're in Demo mode
         if config.mode == Mode::Demo {
             // Try to load from saved file
-            if let Ok(file) = std::fs::File::open("./demo_data/demo_positions.json") {
+            if let Ok(file) = std::fs::File::open("demo_data/demo_positions.json") {
                 let reader = std::io::BufReader::new(file);
-                if let Ok(positions) = serde_json::from_reader(reader) {
-                    println!("Loaded positions from demo_positions.json");
-                    self.positions = positions;
-                    return Ok(());
+                match serde_json::from_reader(reader) {
+                    Ok(positions) => {
+                        println!("Loaded positions from demo_positions.json");
+                        self.positions = positions;
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        println!("Failed to parse demo positions data: {}", e);
+                        return Err("Failed to parse demo positions data".into());
+                    }
                 }
+            } else {
+                return Err("No demo positions data available".into());
             }
-            return Err("No demo positions data available".into());
-        }
+        } else {
+            // Live mode - proceed with Trading212 API
+            let trading212_client =
+                Trading212Client::new(RequestType::Portfolio, config).map_err(|e| {
+                    eprintln!("Trading 212 API error: client initialization failed: {}", e);
+                    e
+                })?;
 
-        // Live mode - proceed with Trading212 API
-        let trading212_client =
-            Trading212Client::new(RequestType::Portfolio, config).map_err(|e| {
-                eprintln!("Trading 212 API error: client initialization failed: {}", e);
+            // Fetch open positions
+            self.positions = trading212_client.get_open_positions().await.map_err(|e| {
+                eprintln!("Trading 212 API error: failed to get open positions: {}", e);
                 e
             })?;
 
-        // Fetch open positions
-        self.positions = trading212_client.get_open_positions().await.map_err(|e| {
-            eprintln!("Trading 212 API error: failed to get open positions: {}", e);
-            e
-        })?;
-
-        // Save the data for future use in Demo mode
-        if let Ok(file) = std::fs::File::create("demo_positions.json") {
-            let writer = std::io::BufWriter::new(file);
-            if let Err(e) = serde_json::to_writer_pretty(writer, &self.positions) {
-                eprintln!("Failed to save positions data: {}", e);
-            } else {
-                println!("Saved positions data to demo_positions.json");
+            #[cfg(debug_assertions)]
+            {
+                // Save the data for future use in Demo mode
+                if let Ok(file) = std::fs::File::create("demo_positions.json") {
+                    let writer = std::io::BufWriter::new(file);
+                    if let Err(e) = serde_json::to_writer_pretty(writer, &self.positions) {
+                        eprintln!("Failed to save positions data: {}", e);
+                    } else {
+                        println!("Saved positions data to demo_positions.json");
+                    }
+                }
             }
         }
 

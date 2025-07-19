@@ -1,8 +1,8 @@
 // File: orchestrator.rs
 // Copyright (c) 2025 Anand Sureshkumar
-// This file is part of T212 Portfolio Analytics.
-// Licensed for personal and educational use only. Commercial use prohibited.
-// See the LICENSE file for details.
+//
+// This source code is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+// See the LICENSE file or visit http://creativecommons.org/licenses/by-nc/4.0/ for details.
 //
 // Permission is granted to use, copy, and modify this code for personal, non-commercial, or educational purposes.
 //
@@ -34,11 +34,14 @@ impl Orchestrator {
             // Try to load from saved file
             if let Ok(file) = std::fs::File::open("./demo_data/demo_instruments.json") {
                 let reader = std::io::BufReader::new(file);
-                if let Ok(metadata) = serde_json::from_reader(reader) {
-                    println!("Loaded instruments metadata from demo_instruments.json");
-                    metadata
-                } else {
-                    return Err("Failed to parse demo instruments data".into());
+                match serde_json::from_reader(reader) {
+                    Ok(metadata) => {
+                        println!("Loaded instruments metadata from demo_instruments.json");
+                        metadata
+                    }
+                    Err(e) => {
+                        return Err(format!("Failed to parse demo instruments data: {}", e).into());
+                    }
                 }
             } else {
                 return Err("No demo instruments data available".into());

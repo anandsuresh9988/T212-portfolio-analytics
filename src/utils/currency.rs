@@ -134,7 +134,7 @@ impl CurrencyConverter {
 
         // Update the cached rates and timestamp
         let mut rates_map = self.rates.write().await;
-        println!("Rate = {:?}", rates);
+
         *rates_map = rates.rates;
         *self.last_update.write().await = Instant::now();
 

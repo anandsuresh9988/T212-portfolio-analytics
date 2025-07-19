@@ -1,5 +1,7 @@
 # T212 Portfolio Analytics
 
+## 🔧 NOTE: THIS PROJECT IS A WORK IN PROGRESS 🚧
+
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?logo=rust)](https://www.rust-lang.org/)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://www.python.org/)
 [![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-red)](LICENSE)
