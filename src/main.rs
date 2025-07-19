@@ -20,6 +20,7 @@ use t212_portfolio_analytics::models::portfolio::download_export_if_needed;
 use t212_portfolio_analytics::models::portfolio::Portfolio;
 use t212_portfolio_analytics::services::orchestrator::Orchestrator;
 use t212_portfolio_analytics::utils::settings::Config;
+use t212_portfolio_analytics::utils::settings::Mode;
 use t212_portfolio_analytics::webui;
 
 #[tokio::main]
@@ -46,8 +47,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         portfolio.init(&config).await?;
         //println!("Instrument metadata {:?}", orchestrator.instrument_metadata);
 
-        // Try to download export if needed
-        download_export_if_needed(&config).await?;
+        if !(config.mode == Mode::Demo) {
+            // Try to download export if needed. Payouts are not availabe in Demo mode.
+            // So skip this step in Demo mode.
+            println!("Downloading export data...");
+            download_export_if_needed(&config).await?;
+        }
 
         // Process portfolio with cache file and currency converter
         portfolio

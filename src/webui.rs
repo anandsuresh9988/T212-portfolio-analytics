@@ -40,7 +40,7 @@ use tokio::time::{sleep, Duration};
 use crate::{
     models::{
         dividend::DividendInfo,
-        portfolio::{DividendPrediction, Portfolio, Position},
+        portfolio::{download_export_if_needed, DividendPrediction, Portfolio, Position},
     },
     services::orchestrator::Orchestrator,
     utils::settings::{Config, Mode},
@@ -135,8 +135,11 @@ pub fn calculate_monthly_dividends(records: &[DividendRecord]) -> Vec<(String, f
 
     result
 }
-pub async fn get_latest_dividend_records() -> Result<Vec<DividendRecord>, Box<dyn std::error::Error>>
-{
+pub async fn get_latest_dividend_records(
+    config: &Config,
+) -> Result<Vec<DividendRecord>, Box<dyn std::error::Error>> {
+    download_export_if_needed(config).await?;
+
     // Find the latest export file
     let entries = std::fs::read_dir(".")?;
     let latest_export = entries
@@ -319,8 +322,20 @@ pub async fn show_payouts(State(state): State<AppState>) -> impl IntoResponse {
         return axum::response::Redirect::to("/settings").into_response();
     }
     let config = state.config.lock().await;
+
+    if config.mode == Mode::Demo {
+        println!("Demo mode: Payouts are not available");
+        return (
+            StatusCode::FORBIDDEN,
+            "Payouts are not available in Demo mode".to_string(),
+        )
+            .into_response();
+    } else {
+        println!("Live mode: Fetching payouts");
+    }
+
     // Get the latest export file
-    let records = match get_latest_dividend_records().await {
+    let records = match get_latest_dividend_records(&config).await {
         Ok(records) => records,
         Err(e) => {
             return (
