@@ -40,7 +40,7 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Err(e) => {
             eprintln!("Failed to initialize orchestrator: {}", e);
-            return Err(e.into());
+            return Err(anyhow::Error::msg(e.to_string()));
         }
     };
 

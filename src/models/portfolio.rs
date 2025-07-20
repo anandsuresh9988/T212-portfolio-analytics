@@ -1,4 +1,3 @@
-use std::f32::consts::E;
 // File: portfolio.rs
 // Copyright (c) 2025 Anand Sureshkumar
 // This file is part of T212 Portfolio Analytics.
@@ -89,7 +88,7 @@ pub struct Portfolio {
 }
 
 impl Portfolio {
-    pub async fn init(&mut self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn init(&mut self, config: &Config) -> Result<(), anyhow::Error> {
         // Check if we're in Demo mode
         if config.mode == Mode::Demo {
             // Try to load from saved file
@@ -103,11 +102,11 @@ impl Portfolio {
                     }
                     Err(e) => {
                         println!("Failed to parse demo positions data: {}", e);
-                        return Err("Failed to parse demo positions data".into());
+                        return Err(anyhow::anyhow!("Failed to parse demo positions data"));
                     }
                 }
             } else {
-                return Err("No demo positions data available".into());
+                return Err(anyhow::anyhow!("No demo positions data available"));
             }
         } else {
             // Live mode - proceed with Trading212 API
@@ -145,10 +144,10 @@ impl Portfolio {
         config: &Config,
         converter: CurrencyConverter,
         instrument_metadata: Vec<InstrumentMetadata>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), anyhow::Error> {
         if self.positions.is_empty() {
             println!("No positions are available!");
-            return Err(Box::new(PortfolioError::NoPositionsError));
+            return Err(Box::new(PortfolioError::NoPositionsError).into());
         }
 
         let meta_data_lookup: HashMap<_, _> = instrument_metadata
@@ -204,7 +203,6 @@ impl Portfolio {
         for p in &mut self.positions {
             match parsed.get(p.yf_ticker.clone()) {
                 Some(info) => {
-                    // println!("Processing ticker: {:?}", info);
                     let yield_opt = info.get("dividendYield").and_then(|v| v.as_f64());
                     let mut rate_opt = info.get("dividendRate").and_then(|v| v.as_f64());
 
@@ -261,11 +259,6 @@ impl Portfolio {
                             .net_payment_amount
                             .map(|amt| amt - p.div_prediction.net_wht.unwrap_or(0.0));
                     }
-
-                    println!(
-                        "Processing ticker: {}, div_prediction: {:?}",
-                        p.yf_ticker, p.div_prediction
-                    );
 
                     if p.currency == "GBX" {
                         p.average_price /= 100.0;
@@ -355,7 +348,7 @@ fn calculate_dividend(p: &mut Position, yield_opt: Option<f64>, rate_opt: Option
     //println!("{:?}", p.div_info);
 }
 
-pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn download_export_if_needed(config: &Config) -> Result<(), anyhow::Error> {
     // Check if we already have a recent export
     if std::fs::read_dir(".")?
         .filter_map(|entry| entry.ok())
@@ -373,7 +366,7 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn st
 
     // Initialize Trading212 client for exports
     let trading212_client = Trading212Client::new(RequestType::Export, &config)
-        .map_err(|e| format!("Failed to initialize Trading212 client: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize Trading212 client: {}", e))?;
 
     // Calculate date range for the last year
     let now = Utc::now();
@@ -401,7 +394,7 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn st
     let export_response = trading212_client
         .request_export(&export_request)
         .await
-        .map_err(|e| format!("Failed to request export: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to request export: {}", e))?;
 
     println!("Export initiated with ID: {}", export_response.report_id);
 
@@ -413,7 +406,7 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn st
         if let Some(export_info) = trading212_client
             .get_export_status(export_response.report_id)
             .await
-            .map_err(|e| format!("Failed to check export status: {}", e))?
+            .map_err(|e| anyhow::anyhow!("Failed to check export status: {}", e))?
         {
             println!("Export status: {}", export_info.status);
 
@@ -426,19 +419,19 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn st
                         let export_data = trading212_client
                             .download_export(download_link)
                             .await
-                            .map_err(|e| format!("Failed to download export: {}", e))?;
+                            .map_err(|e| anyhow::anyhow!("Failed to download export: {}", e))?;
 
                         // Save the export
                         let filename = format!("export_{}.csv", export_info.report_id);
                         std::fs::write(&filename, export_data)
-                            .map_err(|e| format!("Failed to save export file: {}", e))?;
+                            .map_err(|e| anyhow::anyhow!("Failed to save export file: {}", e))?;
 
                         println!("Export saved to {}", filename);
                         return Ok(());
                     }
                 }
                 "Failed" | "Canceled" => {
-                    return Err(format!(
+                    return Err(anyhow::anyhow!(
                         "Export {} failed or was canceled",
                         export_response.report_id
                     )
@@ -453,5 +446,5 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), Box<dyn st
         }
     }
 
-    Err("Export timed out after 30 attempts".into())
+    Err(anyhow::anyhow!("Export timed out after 30 attempts"))
 }
