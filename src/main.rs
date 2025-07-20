@@ -51,13 +51,6 @@ async fn main() -> Result<(), anyhow::Error> {
         println!("Initializing portfolio...");
         portfolio.init(&config).await?;
 
-        if !(config.mode == Mode::Demo) {
-            // Try to download export if needed. Payouts are not available in Demo mode.
-            // So skip this step in Demo mode.
-            println!("Downloading export data...");
-            download_export_if_needed(&config).await?;
-        }
-
         // Process portfolio. This stage will fetch other information for processing each
         // positions, like the yahoo finance data.
         portfolio
