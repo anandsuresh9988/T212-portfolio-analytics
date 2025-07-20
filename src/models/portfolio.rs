@@ -1,3 +1,4 @@
+use std::f32::consts::E;
 // File: portfolio.rs
 // Copyright (c) 2025 Anand Sureshkumar
 // This file is part of T212 Portfolio Analytics.
