@@ -6,3 +6,6 @@ target/
 
 # Keep everything in demo folder
 !demo_data/*
+
+# Keep the symbol mapper file
+!data/symbol_mapper.json

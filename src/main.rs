@@ -16,15 +16,13 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use t212_portfolio_analytics::models::portfolio::download_export_if_needed;
 use t212_portfolio_analytics::models::portfolio::Portfolio;
 use t212_portfolio_analytics::services::orchestrator::Orchestrator;
 use t212_portfolio_analytics::utils::settings::Config;
-use t212_portfolio_analytics::utils::settings::Mode;
 use t212_portfolio_analytics::webui;
 
 #[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
+async fn main() -> anyhow::Result<()> {
     // Create an default portfolio. This will be empty and will
     // be populated later during processing of individual positions
     let mut portfolio: Portfolio = Portfolio::default();
