@@ -46,8 +46,21 @@ jobs:
       matrix:
         target: [
           "x86_64-unknown-linux-gnu",
+          "aarch64-unknown-linux-musl",
+          "x86_64-pc-windows-gnu",
+
         ]
     steps:
+      - name: Install cross
+        run: cargo install cross
+      - name: Install mingw-w64 cross compiler
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
+      - name: Install musl cross compiler (for aarch64-unknown-linux-musl)
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
       - uses: actions/checkout@v4
       # Install Rust toolchain and target
       - name: Set up Rust
@@ -59,7 +72,7 @@ jobs:
 
       # Build for target
       - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target }} --verbose
+        run: cross build --release --target ${{ matrix.target }} --verbose
 
       # Upload artifact
       - name: Upload artifact
