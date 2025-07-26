@@ -18,11 +18,11 @@
 
 use crate::{
     models::portfolio::{DividendPrediction, Position},
-    utils::settings::{Config, Mode},
+    utils::settings::Config,
 };
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
-use std::{default, env};
+use std::env;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -41,10 +41,13 @@ pub enum Trading212Error {
 struct Trading212Position {
     ticker: String,
     quantity: f64,
-    averagePrice: f64,
-    currentPrice: f64,
+    #[serde(rename = "averagePrice")]
+    average_price: f64,
+    #[serde(rename = "currentPrice")]
+    current_price: f64,
     ppl: f64,
-    fxPpl: Option<f64>,
+    #[serde(rename = "fxPpl")]
+    fx_ppl: Option<f64>,
     currency: Option<String>,
 }
 
@@ -130,6 +133,7 @@ impl Trading212Client {
             None => return Err(Trading212Error::MissingApiKey),
         };
 
+        #[allow(unused_assignments)]
         let mut base_url = "".to_string();
 
         let target = env::var("T212_TARGET").unwrap_or_else(|_| "live".to_string());
@@ -212,14 +216,14 @@ impl Trading212Client {
             .map(|p| Position {
                 ticker: p.ticker,
                 quantity: p.quantity,
-                average_price: p.averagePrice,
-                current_price: p.currentPrice,
+                average_price: p.average_price,
+                current_price: p.current_price,
                 currency: p.currency.unwrap_or_else(|| "GBP".to_string()),
-                value: p.quantity * p.currentPrice,
+                value: p.quantity * p.current_price,
                 ppl: p.ppl,
-                fx_ppl: p.fxPpl.unwrap_or_else(|| 0.0),
-                ppl_percent: if p.averagePrice != 0.0 {
-                    (p.currentPrice / p.averagePrice - 1.0) * 100.0
+                fx_ppl: p.fx_ppl.unwrap_or(0.0),
+                ppl_percent: if p.average_price != 0.0 {
+                    (p.current_price / p.average_price - 1.0) * 100.0
                 } else {
                     0.0
                 },

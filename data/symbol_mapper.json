@@ -1,0 +1,212 @@
+{
+    "HSBAl_EQ": {
+        "name": "HSBC UK.",
+        "country": "NA",
+        "yf_ticker": "HSBA.L",
+        "tax": 0
+    },
+    "EQGBl_EQ": {
+        "name": "EQGB",
+        "country": "NA",
+        "yf_ticker": "EQGB.L",
+        "tax": 0
+    },
+    "ICDUl_EQ": {
+        "name": "Test Inc.",
+        "country": "NA",
+        "yf_ticker": "ICDU.L",
+        "tax": 0
+    },
+    "SSLNl_EQ": {
+        "name": "Fund",
+        "country": "UK",
+        "yf_ticker": "SSLN.L",
+        "tax": 0
+    },
+    "GRGl_EQ": {
+        "name": "Gregs UK.",
+        "country": "UK",
+        "yf_ticker": "GRG.L",
+        "tax": 0
+    },
+    "BPl_EQ": {
+        "name": "BP_UK.",
+        "country": "UK",
+        "yf_ticker": "BP.L",
+        "tax": 0
+    },
+    "FRINl_EQ": {
+        "name": "Fund",
+        "country": "UK",
+        "yf_ticker": "FRIN.L",
+        "tax": 0
+    },
+    "IUKDl_EQ": {
+        "name": "TFund.",
+        "country": "UK",
+        "yf_ticker": "IUKD.L",
+        "tax": 0
+    },
+    "IINDl_EQ": {
+        "name": "Fund.",
+        "country": "UK",
+        "yf_ticker": "IIND.L",
+        "tax": 0
+    },
+    "LGENl_EQ": {
+        "name": "LGEN.L",
+        "country": "UK",
+        "yf_ticker": "LGEN.L",
+        "tax": 0
+    },
+    "BRK_B_US_EQ": {
+        "name": "Berkshare",
+        "country": "USA",
+        "yf_ticker": "BRK-B",
+        "tax": 15
+    },
+    "TSLA_US_EQ": {
+        "name": "Tesla",
+        "country": "US",
+        "yf_ticker": "TSLA",
+        "tax": 15
+    },
+    "NGl_EQ": {
+        "name": ".",
+        "country": "NA",
+        "yf_ticker": "NG.L",
+        "tax": 0
+    },
+    "EHYGl_EQ": {
+        "name": "Fund",
+        "country": "NA",
+        "yf_ticker": "EHYG.L",
+        "tax": 0
+    },
+    "VACQ_US_EQ": {
+        "name": "Rocket labs",
+        "country": "US",
+        "yf_ticker": "RKLB",
+        "tax": 15
+    },
+    "BAl_EQ": {
+        "name": "NA.",
+        "country": "UK",
+        "yf_ticker": "BA.L",
+        "tax": 0
+    },
+    "VHYLl_EQ": {
+        "name": "Fund.",
+        "country": "UK",
+        "yf_ticker": "VHYL.L",
+        "tax": 0
+    },
+    "RRl_EQ": {
+        "name": "Rolls Royce.",
+        "country": "UK",
+        "yf_ticker": "RR.L",
+        "tax": 0
+    },
+    "RIOl_EQ": {
+        "name": "",
+        "country": "UK",
+        "yf_ticker": "RIO.L",
+        "tax": 0
+    },
+    "AAPL_US": {
+        "name": "Apple Inc.",
+        "country": "US",
+        "yf_ticker": "AAPL",
+        "tax": 15
+    },
+    "VWRPl_EQ": {
+        "name": "Fund",
+        "country": "UK",
+        "yf_ticker": "VWRP.L",
+        "tax": 0
+    },
+    "BARCl_EQ": {
+        "name": "Barclays.",
+        "country": "UK",
+        "yf_ticker": "BARC.L",
+        "tax": 0
+    },
+    "SHELl_EQ": {
+        "name": "SHELL.",
+        "country": "UK",
+        "yf_ticker": "SHEL.L",
+        "tax": 0
+    },
+    "BABl_EQ": {
+        "name": "",
+        "country": "uk",
+        "yf_ticker": "BAB.L",
+        "tax": 0
+    },
+    "FB_US_EQ": {
+        "name": "Meta.",
+        "country": "US",
+        "yf_ticker": "META",
+        "tax": 15
+    },
+    "LLOYl_EQ": {
+        "name": "LLoyds Bank.",
+        "country": "UK",
+        "yf_ticker": "LLOY.L",
+        "tax": 0
+    },
+    "ISFl_EQ": {
+        "name": "Fund",
+        "country": "UK",
+        "yf_ticker": "ISF.L",
+        "tax": 0
+    },
+    "BATSl_EQ": {
+        "name": "BATS.",
+        "country": "UK",
+        "yf_ticker": "BATS.L",
+        "tax": 0
+    },
+    "CARDl_EQ": {
+        "name": "Card factory",
+        "country": "UK",
+        "yf_ticker": "CARD.L",
+        "tax": 0
+    },
+    "SGLNl_EQ": {
+        "name": "Fund.",
+        "country": "UK",
+        "yf_ticker": "SGLN.L",
+        "tax": 0
+    },
+    "VUAGl_EQ": {
+        "name": "Fund",
+        "country": "UK",
+        "yf_ticker": "VUAG.L",
+        "tax": 0
+    },
+    "VUKGl_EQ": {
+        "name": "Fund.",
+        "country": "NA",
+        "yf_ticker": "VUKG.L",
+        "tax": 0
+    },
+    "BTl_EQ": {
+        "name": "Fund",
+        "country": "NA",
+        "yf_ticker": "BT-A.L",
+        "tax": 0
+    },
+    "IMBl_EQ": {
+        "name": "Imperial Brands.",
+        "country": "UK",
+        "yf_ticker": "IMB.L",
+        "tax": 0
+    },
+    "TEST": {
+        "name": "Test Inc.",
+        "country": "NA",
+        "yf_ticker": "TEST",
+        "tax": 15
+    }
+}
