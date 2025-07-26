@@ -85,7 +85,8 @@ jobs:
          cp -r demo_data/ release/${{ matrix.target }}/demo_data
          cp -r data/ release/${{ matrix.target }}/data
          cp LICENSE release/${{ matrix.target }}/
-
+         cp requirements.txt release/${{ matrix.target }}/
+         cp stock_info.py release/${{ matrix.target }}/
 
       # Upload artifact
       - name: Upload artifact
@@ -96,3 +97,87 @@ jobs:
           path: release/${{ matrix.target }}
           if-no-files-found: error
           retention-days: 7
+     
+      # Clean up
+      - name: Clean up
+        run: |
+          rm -rf release/
+      
+
+  test-artifacts:
+    needs: build-all-targets
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            exe: t212_portfolio_analytics
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            exe: t212_portfolio_analytics
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+            exe: t212_portfolio_analytics.exe
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: release/${{ matrix.target }}
+
+      - name: List files
+        run: ls -R release/
+
+      - name: Install QEMU (for ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user
+
+
+      - name: Set executable permission (Linux only)
+        if: runner.os != 'Windows'
+        run: chmod +x release/${{ matrix.target }}/${{ matrix.exe }}
+
+      # Start server (Linux)
+      - name: Start server (Linux)
+        if: runner.os != 'Windows'
+        run: |
+           cd release/${{ matrix.target }}
+           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
+              qemu-aarch64 ./${{ matrix.exe }} &
+           else
+             ./${{ matrix.exe }} &
+           fi
+           echo $! > server.pid
+        shell: bash
+
+      # Start server (Windows)
+      - name: Start server (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd release\${{ matrix.target }}
+          Start-Process -FilePath .\${{ matrix.exe }} -NoNewWindow -PassThru | ForEach-Object { $_.Id } > server.pid
+        shell: pwsh
+
+      - name: Wait for server to come up
+        run: sleep 5
+        shell: bash
+
+      - name: Smoke-test with curl (Linux)
+        if: runner.os != 'Windows'
+        run: |
+          curl --fail http://127.0.0.1:3000/dividends || (echo "Server did not respond" && exit 1)
+        shell: bash
+
+      # TODO (#30): Add smoke-test for Windows
+
+      # Tear down server (Linux)
+      - name: Tear down server (Linux)
+        if: runner.os == 'Linux'
+        run: |
+         cd release/${{ matrix.target }}
+         kill $(cat server.pid)
+        shell: bash
