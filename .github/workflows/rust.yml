@@ -51,6 +51,8 @@ jobs:
 
         ]
     steps:
+      - name: Install cross
+        run: cargo install cross
       - name: Install mingw-w64 cross compiler
         if: matrix.target == 'x86_64-pc-windows-gnu'
         run: sudo apt-get update && sudo apt-get install -y mingw-w64
@@ -70,7 +72,7 @@ jobs:
 
       # Build for target
       - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target }} --verbose
+        run: cross build --release --target ${{ matrix.target }} --verbose
 
       # Upload artifact
       - name: Upload artifact
