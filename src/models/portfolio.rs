@@ -1,4 +1,3 @@
-use std::f32::consts::E;
 // File: portfolio.rs
 // Copyright (c) 2025 Anand Sureshkumar
 // This file is part of T212 Portfolio Analytics.
@@ -245,7 +244,7 @@ impl Portfolio {
                                 .or_else(|| a.as_str().and_then(|s| s.parse::<f64>().ok()))
                         });
 
-                    if !p.div_prediction.payment_amount_per_share.is_none() {
+                    if p.div_prediction.payment_amount_per_share.is_some() {
                         p.div_prediction.net_payment_amount = p
                             .div_prediction
                             .payment_amount_per_share
@@ -285,8 +284,8 @@ impl Portfolio {
                             rate_opt = rate_opt.map(|rate| rate * conv_fact);
                         }
 
-                        if (p.ppl != 0.0) {
-                            p.ppl_percent = p.ppl_percent + ((p.fx_ppl / p.value) * 100.00);
+                        if p.ppl != 0.0 {
+                            p.ppl_percent += (p.fx_ppl / p.value) * 100.00;
                         }
                     }
 
@@ -366,7 +365,7 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), anyhow::Er
     println!("No existing export found. Initiating download from Trading212...");
 
     // Initialize Trading212 client for exports
-    let trading212_client = Trading212Client::new(RequestType::Export, &config)
+    let trading212_client = Trading212Client::new(RequestType::Export, config)
         .map_err(|e| anyhow::anyhow!("Failed to initialize Trading212 client: {}", e))?;
 
     // Calculate date range for the last year
@@ -435,8 +434,7 @@ pub async fn download_export_if_needed(config: &Config) -> Result<(), anyhow::Er
                     return Err(anyhow::anyhow!(
                         "Export {} failed or was canceled",
                         export_response.report_id
-                    )
-                    .into());
+                    ));
                 }
                 _ => {
                     println!("Export still processing...");

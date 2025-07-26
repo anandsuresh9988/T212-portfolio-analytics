@@ -26,6 +26,7 @@ async fn main() -> anyhow::Result<()> {
     // Create an default portfolio. This will be empty and will
     // be populated later during processing of individual positions
     let mut portfolio: Portfolio = Portfolio::default();
+    #[allow(unused_assignments)]
     let mut config_success: bool = false;
 
     let config = Config::load_config()?;

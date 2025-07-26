@@ -40,7 +40,7 @@ use tokio::time::{sleep, Duration};
 use crate::{
     models::{
         dividend::DividendInfo,
-        portfolio::{download_export_if_needed, DividendPrediction, Portfolio, Position},
+        portfolio::{download_export_if_needed, Portfolio, Position},
     },
     services::orchestrator::Orchestrator,
     utils::settings::{Config, Mode},

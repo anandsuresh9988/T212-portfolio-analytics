@@ -2,6 +2,7 @@
 *.csv
 target/
 *.lock
+.venv
 .env
 
 # Keep everything in demo folder
