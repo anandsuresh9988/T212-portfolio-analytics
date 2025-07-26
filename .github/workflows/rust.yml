@@ -72,7 +72,7 @@ jobs:
       # Build for target
       - name: Build for ${{ matrix.target }}
         run: cross build --release --target ${{ matrix.target }} --verbose
-
+        
       # Create release directory
       - name: Create release directory
         run: |
@@ -85,6 +85,7 @@ jobs:
          cp -r demo_data/ release/${{ matrix.target }}/demo_data
          cp -r data/ release/${{ matrix.target }}/data
          cp LICENSE release/${{ matrix.target }}/
+
 
       # Upload artifact
       - name: Upload artifact
