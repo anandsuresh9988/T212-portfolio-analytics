@@ -23,7 +23,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Struct representing stock information.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StockInfo {
     pub name: String,
     pub country: String,
@@ -32,13 +33,23 @@ pub struct StockInfo {
 }
 
 const SYMBOL_MAPPER_FILE: &str = "data/symbol_mapper.json";
-// Define the lookup table as a static HashMap loaded from symbol_mapper.json
+
+/// Static lookup table loaded from symbol_mapper.json at runtime.
 static STOCKS_LUT: Lazy<HashMap<String, StockInfo>> = Lazy::new(|| {
     let path = Path::new(SYMBOL_MAPPER_FILE);
     let data = fs::read_to_string(path).expect("Failed to read symbol_mapper.json");
     serde_json::from_str(&data).expect("Failed to parse symbol_mapper.json")
 });
 
+/// Extracts a symbol and its StockInfo from a Trading 212 ticker.
+/// 1. If the ticker exists in the lookup table, returns its StockInfo.
+/// 2. Otherwise, applies fallback logic to generate a Yahoo Finance ticker and default StockInfo.
+///
+/// # Arguments
+/// * `t212_ticker` - The Trading 212 ticker string.
+///
+/// # Returns
+/// Tuple of (original ticker, StockInfo).
 pub fn extract_symbol(t212_ticker: &str) -> (String, StockInfo) {
     // 1. Use dictionary override if available
     if let Some(stock_info) = STOCKS_LUT.get(t212_ticker) {
@@ -65,4 +76,23 @@ pub fn extract_symbol(t212_ticker: &str) -> (String, StockInfo) {
             tax: 15,
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_symbol_from_lut() {
+        let (ticker, info) = extract_symbol("AAPL_US");
+        assert_eq!(ticker, "AAPL_US");
+        assert_eq!(info.name, "Apple Inc.");
+    }
+
+    #[test]
+    fn test_extract_symbol_fallback_dot_l() {
+        let (ticker, info) = extract_symbol("PHNXl_EQ");
+        assert_eq!(ticker, "PHNXl_EQ");
+        assert_eq!(info.yf_ticker, "PHNX.L");
+    }
 }
