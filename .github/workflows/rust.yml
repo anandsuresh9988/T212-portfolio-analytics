@@ -51,6 +51,11 @@ jobs:
 
         ]
     steps:
+        # Install mingw-w64 only for Windows GNU target
+      - name: Install mingw-w64 cross compiler
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
       - uses: actions/checkout@v4
       # Install Rust toolchain and target
       - name: Set up Rust
