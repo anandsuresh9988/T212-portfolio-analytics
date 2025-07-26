@@ -16,20 +16,20 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
-use t212_portfolio_analytics::models::portfolio::download_export_if_needed;
 use t212_portfolio_analytics::models::portfolio::Portfolio;
 use t212_portfolio_analytics::services::orchestrator::Orchestrator;
 use t212_portfolio_analytics::utils::settings::Config;
-use t212_portfolio_analytics::utils::settings::Mode;
 use t212_portfolio_analytics::webui;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create an empty/default portfolio
+async fn main() -> anyhow::Result<()> {
+    // Create an default portfolio. This will be empty and will
+    // be populated later during processing of individual positions
     let mut portfolio: Portfolio = Portfolio::default();
+    #[allow(unused_assignments)]
     let mut config_success: bool = false;
 
-    let config = Config::load_config().map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+    let config = Config::load_config()?;
 
     let orchestrator = match Orchestrator::new(&config).await {
         Ok(orchestrator) => {
@@ -39,22 +39,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(e) => {
             eprintln!("Failed to initialize orchestrator: {}", e);
-            return Err(e.into());
+            return Err(anyhow::Error::msg(e.to_string()));
         }
     };
 
     if config_success {
+        // Only initialize the portfolio if the orchestrator was created successfully.
+        // If orchestrator creation fails, this will be fetched later in the processing thread
+        // This will fetch all the T212 positions and create placeholders in the portfolio.
+        println!("Initializing portfolio...");
         portfolio.init(&config).await?;
-        //println!("Instrument metadata {:?}", orchestrator.instrument_metadata);
 
-        if !(config.mode == Mode::Demo) {
-            // Try to download export if needed. Payouts are not availabe in Demo mode.
-            // So skip this step in Demo mode.
-            println!("Downloading export data...");
-            download_export_if_needed(&config).await?;
-        }
-
-        // Process portfolio with cache file and currency converter
+        // Process portfolio. This stage will fetch other information for processing each
+        // positions, like the yahoo finance data.
         portfolio
             .process(
                 &config,

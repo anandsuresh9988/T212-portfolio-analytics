@@ -31,7 +31,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::task;
@@ -40,7 +40,7 @@ use tokio::time::{sleep, Duration};
 use crate::{
     models::{
         dividend::DividendInfo,
-        portfolio::{download_export_if_needed, DividendPrediction, Portfolio, Position},
+        portfolio::{download_export_if_needed, Portfolio, Position},
     },
     services::orchestrator::Orchestrator,
     utils::settings::{Config, Mode},
@@ -545,7 +545,7 @@ pub async fn start_server(
     portfolio: Portfolio,
     config: Config,
     config_success: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), anyhow::Error> {
     let portfolio = Arc::new(TokioMutex::new(portfolio));
     let config = Arc::new(TokioMutex::new(config));
     let config_success = Arc::new(AtomicBool::new(config_success));
@@ -561,7 +561,10 @@ pub async fn start_server(
     };
 
     let app = Router::new()
-        .route("/", get(|| async { "Welcome to T212 Portfolio Analytics" }))
+        .route(
+            "/",
+            get(show_dividends as fn(axum::extract::State<AppState>) -> _),
+        )
         .route(
             "/portfolio",
             get(show_portfolio as fn(axum::extract::State<AppState>) -> _),
