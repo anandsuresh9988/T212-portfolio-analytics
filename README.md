@@ -1,7 +1,5 @@
 # T212 Portfolio Analytics
 
-## 🔧 NOTE: THIS PROJECT IS A WORK IN PROGRESS 🚧
-
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?logo=rust)](https://www.rust-lang.org/)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://www.python.org/)
 [![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-red)](LICENSE)
@@ -44,6 +42,16 @@
    [http://127.0.0.1:3000/dividends](http://127.0.0.1:3000/dividends)
 
 ---
+## 🧪 Demo
+
+See the app in action:
+
+<img src="images/demo.gif" alt="Demo of T212 Portfolio Analytics" loop=infinite>
+
+---
+
+_Note: The demo above uses sample data. For real portfolio analytics, run locally and connect your own Trading 212 account._
+
 
 ## ⚙️ Requirements
 
