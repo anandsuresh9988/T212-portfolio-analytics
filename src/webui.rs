@@ -448,6 +448,8 @@ pub async fn save_settings(
     State(state): State<AppState>,
     Form(form): Form<UpdateSettingsForm>,
 ) -> impl IntoResponse {
+    log::info!("Saving settings: {:?}", form);
+
     let mut config_data = match Config::load_config() {
         Ok(config) => config,
         Err(e) => {
@@ -599,26 +601,27 @@ pub async fn start_server(
     let config_success_for_task = config_success.clone();
     task::spawn(async move {
         loop {
-            // Wait for either the update interval or an immediate update signal
+            // Wait for either immediate signal or regular interval
             tokio::select! {
-                _ = sleep(Duration::from_secs(1)) => {
-                    // Check if we should update now
-                    if let Ok(()) = rx.try_recv() {
-                        // Immediate update requested
-                        println!("Performing immediate portfolio update");
-                    } else {
-                        // Get the latest config
-                        let current_config = config_for_task.lock().await.clone();
-                        // Check if it's time for a regular update
-                        if current_config.portfolio_update_interval.as_secs() == 0 {
-                            continue;
-                        }
-                        sleep(current_config.portfolio_update_interval).await;
-                    }
-                }
                 _ = rx.recv() => {
                     // Immediate update requested
                     println!("Performing immediate portfolio update");
+                }
+                _ = sleep(Duration::from_secs(1)) => {
+                    // Check if regular update is due
+                    let current_config = config_for_task.lock().await.clone();
+                    if current_config.portfolio_update_interval.as_secs() == 0 {
+                        continue;
+                    }
+                    // Wait for the full interval, but can be interrupted
+                    tokio::select! {
+                        _ = sleep(current_config.portfolio_update_interval) => {
+                            println!("Performing regular portfolio update");
+                        }
+                        _ = rx.recv() => {
+                            println!("Performing immediate portfolio update");
+                        }
+                    }
                 }
             }
 
