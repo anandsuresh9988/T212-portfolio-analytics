@@ -16,6 +16,7 @@
 //
 // USE THIS SOFTWARE AT YOUR OWN RISK.
 
+use log;
 use t212_portfolio_analytics::models::portfolio::Portfolio;
 use t212_portfolio_analytics::services::orchestrator::Orchestrator;
 use t212_portfolio_analytics::utils::settings::Config;
@@ -23,6 +24,8 @@ use t212_portfolio_analytics::webui;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    log::info!("Starting T212 Portfolio Analytics...");
+
     // Create an default portfolio. This will be empty and will
     // be populated later during processing of individual positions
     let mut portfolio: Portfolio = Portfolio::default();

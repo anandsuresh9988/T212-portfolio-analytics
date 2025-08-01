@@ -63,7 +63,6 @@ impl Orchestrator {
                     println!("Saved instruments metadata to demo_instruments.json");
                 }
             }
-
             metadata
         };
 
