@@ -301,6 +301,14 @@ impl Portfolio {
             }
         }
 
+        self.total_value = self.positions.iter().map(|p| p.value).sum::<f64>();
+
+        self.total_cost = self
+            .positions
+            .iter()
+            .map(|p| p.quantity * p.average_price)
+            .sum::<f64>();
+
         self.last_updated = Utc::now();
         Ok(())
     }
