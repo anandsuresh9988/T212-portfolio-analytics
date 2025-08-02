@@ -62,6 +62,8 @@ pub struct UpComingDivPaymetsPred {
 pub struct DividendsTemplate {
     pub dividends: Vec<DividendInfo>,
     pub div_per_year: String,
+    pub div_yield: String,
+    pub yield_on_cost: String,
     pub upcoming_payments: Vec<UpComingDivPaymetsPred>,
     pub settings: Config,
 }
@@ -219,6 +221,18 @@ pub async fn show_dividends(State(state): State<AppState>) -> impl IntoResponse 
         .map(|item| item.annual_income_after_wht)
         .sum();
 
+    let div_yield: f64 = if portfolio.total_value > 0.0 {
+        div_per_year / portfolio.total_value * 100.0
+    } else {
+        0.0
+    };
+
+    let yield_on_cost: f64 = if portfolio.total_cost > 0.0 {
+        div_per_year / portfolio.total_cost * 100.0
+    } else {
+        0.0
+    };
+
     dividends.sort_by(|a, b| {
         b.annual_income_after_wht
             .partial_cmp(&a.annual_income_after_wht)
@@ -264,6 +278,8 @@ pub async fn show_dividends(State(state): State<AppState>) -> impl IntoResponse 
     let template = DividendsTemplate {
         dividends,
         div_per_year: format!("{:.2}", div_per_year),
+        div_yield: format!("{:.2}", div_yield),
+        yield_on_cost: format!("{:.2}", yield_on_cost),
         upcoming_payments,
         settings: config.clone(),
     };
@@ -286,18 +302,12 @@ pub async fn show_portfolio(State(state): State<AppState>) -> impl IntoResponse 
     let portfolio = state.portfolio.lock().await;
     let config = state.config.lock().await;
     let positions = &portfolio.positions;
-    let total_invested: f64 = portfolio
-        .positions
-        .iter()
-        .map(|p| p.average_price * p.quantity)
-        .sum();
-    let total_current_value: f64 = portfolio.positions.iter().map(|p| p.value).sum();
     let total_pl: f64 = portfolio.positions.iter().map(|p| p.ppl).sum();
 
     let template = PortfolioTemplate {
         positions: positions.to_vec(),
-        total_invested: format!("{:.2}", total_invested),
-        total_current_value: format!("{:.2}", total_current_value),
+        total_invested: format!("{:.2}", &portfolio.total_cost),
+        total_current_value: format!("{:.2}", &portfolio.total_value),
         total_pl: format!("{:.2}", total_pl),
         last_updated: portfolio
             .last_updated
